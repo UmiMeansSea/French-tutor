@@ -22,10 +22,10 @@ from mentor_manager import build_mentor_instructions
 def get_system_instruction(user_level, mentor_style, weak_spots=None, user_memories=None):
     return build_mentor_instructions(user_level, mentor_style, user_memories, weak_spots)
 
-MODEL_NAME = "gemini-1.5-flash"  # Primary high-quota Gemini model
+MODEL_NAME = "gemini-flash-latest"  # Verified working production model
 
 def create_chat(client, user_level, mentor_style, weak_spots=None, user_memories=None):
-    models_to_try = ["gemini-1.5-flash", "gemini-2.0-flash-lite", "gemini-1.5-flash-8b", "gemini-2.0-flash"]
+    models_to_try = ["gemini-flash-latest", "gemini-flash-lite-latest", "gemini-pro-latest", "gemini-2.0-flash"]
     sys_inst = get_system_instruction(user_level, mentor_style, weak_spots, user_memories)
     
     for m in models_to_try:
@@ -44,7 +44,7 @@ def create_chat(client, user_level, mentor_style, weak_spots=None, user_memories
             
     # Final attempt fallback
     return client.chats.create(
-        model="gemini-1.5-flash",
+        model="gemini-flash-latest",
         config=types.GenerateContentConfig(
             system_instruction=sys_inst,
             temperature=0.7,
