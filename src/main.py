@@ -133,7 +133,7 @@ def main():
             if user_input.strip().lower() == '/profile':
                 mentor_style = select_style_menu()
                 save_profile(user_level, mentor_style, milestone_streak, weak_spots, profile.get("xp", 0), profile.get("level", 1), profile.get("badges", []), rpg_stats, user_memories)
-                update_chat_persona(chat, user_level, mentor_style, weak_spots, user_memories)
+                chat = update_chat_persona(client, user_level, mentor_style, weak_spots, user_memories)
                 current_speed = get_voice_speed(mentor_style) if not turtle_mode else 650
                 print(f"\n[Mentor style updated dynamically to: {mentor_style}]\n")
                 continue

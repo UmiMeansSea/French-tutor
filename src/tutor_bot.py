@@ -33,8 +33,8 @@ def create_chat(client, user_level, mentor_style, weak_spots=None, user_memories
         )
     )
 
-def update_chat_persona(chat, user_level, mentor_style, weak_spots=None, user_memories=None):
-    chat.config.system_instruction = get_system_instruction(user_level, mentor_style, weak_spots, user_memories)
+def update_chat_persona(client, user_level, mentor_style, weak_spots=None, user_memories=None):
+    return create_chat(client, user_level, mentor_style, weak_spots, user_memories)
 
 RAG_ENABLED = True
 IS_HEALING = False
