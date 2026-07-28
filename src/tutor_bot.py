@@ -2,11 +2,9 @@ import time
 import random
 import json
 import threading
+import ollama
 from pydantic import BaseModel, Field
 from typing import Optional
-from google import genai
-from google.genai import types
-from google.genai.errors import APIError
 
 class TutorResponse(BaseModel):
     french_response: str
@@ -22,153 +20,79 @@ from mentor_manager import build_mentor_instructions
 def get_system_instruction(user_level, mentor_style, weak_spots=None, user_memories=None, turtle_mode=False):
     return build_mentor_instructions(user_level, mentor_style, user_memories, weak_spots, turtle_mode)
 
-MODEL_NAME = "gemini-flash-latest"  # Verified working production model
+DEFAULT_OLLAMA_MODEL = "gemma2"
+
+class OllamaChatSession:
+    def __init__(self, system_instruction, model_name=DEFAULT_OLLAMA_MODEL):
+        self.model_name = model_name
+        self.system_instruction = system_instruction
+        self.messages = [
+            {"role": "system", "content": system_instruction}
+        ]
+
+    def send_message(self, user_content):
+        self.messages.append({"role": "user", "content": user_content})
+        
+        # Sliding window memory (Keep system instruction + last 10 turns)
+        if len(self.messages) > 11:
+            self.messages = [self.messages[0]] + self.messages[-10:]
+
+        try:
+            response = ollama.chat(
+                model=self.model_name,
+                messages=self.messages,
+                format="json"
+            )
+            tutor_reply = response['message']['content']
+            self.messages.append({"role": "assistant", "content": tutor_reply})
+            return tutor_reply
+        except Exception as e:
+            try:
+                # Fallback without explicit format="json" if model doesn't support structured JSON mode
+                response = ollama.chat(
+                    model=self.model_name,
+                    messages=self.messages
+                )
+                tutor_reply = response['message']['content']
+                self.messages.append({"role": "assistant", "content": tutor_reply})
+                return tutor_reply
+            except Exception as inner_e:
+                fallback_resp = {
+                    "french_response": "Désolé, Ollama rencontre un petit problème. Peux-tu me répéter ta phrase ?",
+                    "mentor_feedback": f"Ollama local inference error: {str(inner_e)}. Ensure Ollama server is running locally ('ollama run gemma2')!",
+                    "phonetic_breakdown": "N/A",
+                    "internal_adaptation_level": "Local Ollama Fallback",
+                    "is_exit": False,
+                    "new_vocabulary_introduced": [],
+                    "diagnostics": "OLLAMA_LOCAL_ERROR"
+                }
+                return json.dumps(fallback_resp)
 
 def create_chat(client, user_level, mentor_style, weak_spots=None, user_memories=None, turtle_mode=False):
-    models_to_try = ["gemini-flash-latest", "gemini-flash-lite-latest", "gemini-pro-latest", "gemini-2.0-flash"]
     sys_inst = get_system_instruction(user_level, mentor_style, weak_spots, user_memories, turtle_mode)
+    models_to_try = [DEFAULT_OLLAMA_MODEL, "llama3", "qwen2.5", "mistral", "llama2"]
     
     for m in models_to_try:
         try:
-            return client.chats.create(
-                model=m,
-                config=types.GenerateContentConfig(
-                    system_instruction=sys_inst,
-                    temperature=0.7,
-                    response_mime_type="application/json",
-                    response_schema=TutorResponse
-                )
-            )
+            return OllamaChatSession(sys_inst, model_name=m)
         except Exception:
             continue
             
-    # Final attempt fallback
-    return client.chats.create(
-        model="gemini-flash-latest",
-        config=types.GenerateContentConfig(
-            system_instruction=sys_inst,
-            temperature=0.7,
-            response_mime_type="application/json",
-            response_schema=TutorResponse
-        )
-    )
+    return OllamaChatSession(sys_inst, model_name=DEFAULT_OLLAMA_MODEL)
 
 def update_chat_persona(client, user_level, mentor_style, weak_spots=None, user_memories=None, turtle_mode=False):
     return create_chat(client, user_level, mentor_style, weak_spots, user_memories, turtle_mode)
 
-RAG_ENABLED = True
-IS_HEALING = False
+def handle_user_message(user_input, client, chat, collection=None):
+    if hasattr(chat, "send_message"):
+        return chat.send_message(user_input)
+    else:
+        # Direct Ollama call fallback
+        sys_inst = get_system_instruction("A1", "Clara")
+        messages = [
+            {"role": "system", "content": sys_inst},
+            {"role": "user", "content": user_input}
+        ]
+        response = ollama.chat(model=DEFAULT_OLLAMA_MODEL, messages=messages)
+        return response['message']['content']
 
-def heal_rag_connection(client):
-    global RAG_ENABLED, IS_HEALING
-    time.sleep(10)
-    while not RAG_ENABLED:
-        try:
-            client.models.embed_content(
-                model="gemini-embedding-001",
-                contents="ping connectivity check"
-            )
-            RAG_ENABLED = True
-            IS_HEALING = False
-            print("\n[RAG connection re-established. Dynamic document retrieval re-enabled.]\n")
-            break
-        except Exception:
-            time.sleep(15)
-
-def handle_user_message(user_input, client, chat, collection):
-    global RAG_ENABLED, IS_HEALING
-    
-    # Sliding window memory (Keep last 6 messages)
-    if hasattr(chat, "_history") and len(chat._history) > 6:
-        chat._history = chat._history[-6:]
-    elif hasattr(chat, "history") and len(chat.history) > 6:
-        chat.history = chat.history[-6:]
-
-    augmented_message = user_input
-
-    if RAG_ENABLED:
-        try:
-            embed_response = client.models.embed_content(
-                model="gemini-embedding-001", 
-                contents=user_input
-            )
-            user_vector = embed_response.embeddings[0].values
-
-            results = collection.query(
-                query_embeddings=[user_vector],
-                n_results=2
-            )
-            
-            valid_rules = []
-            if results['documents'] and results['distances']:
-                for i, distance in enumerate(results['distances'][0]):
-                    if distance <= 1.2:
-                        valid_rules.append(results['documents'][0][i])
-            
-            if valid_rules:
-                context_str = "\n".join(valid_rules)
-                augmented_message = f"""
-                Database Context: {context_str}
-                
-                User Message: {user_input}
-                """
-        except Exception:
-            RAG_ENABLED = False
-            if not IS_HEALING:
-                IS_HEALING = True
-                print("\n[Warning: Dynamic RAG database offline. Bypassing context lookup & healing in background...]")
-                threading.Thread(target=heal_rag_connection, args=(client,), daemon=True).start()
-            augmented_message = user_input
-        
-    max_retries = 5
-    initial_delay = 1.5
-    for attempt in range(max_retries):
-        try:
-            response = chat.send_message(augmented_message)
-            return response.text
-        except APIError as e:
-            code = getattr(e, 'code', 'Unknown HTTP Status')
-            msg = getattr(e, 'message', str(e))
-            details = getattr(e, 'details', '')
-            print(f"\n[Gemini APIError (Status Code: {code}) - Message: {msg}]")
-            if details:
-                print(f"[API Details: {details}]")
-            
-            if attempt == max_retries - 1:
-                print(f"[Max retries ({max_retries}) exhausted for APIError Code {code}]")
-                break
-            
-            sleep_time = (initial_delay * (2 ** attempt)) + random.uniform(0.2, 0.8)
-            print(f"[Retrying in {sleep_time:.1f}s... (Attempt {attempt + 1}/{max_retries})]")
-            time.sleep(sleep_time)
-        except Exception as e:
-            import traceback
-            code_str = getattr(e, 'code', None) or getattr(e, 'status_code', None) or 'N/A'
-            print(f"\n[API Exception ({type(e).__name__}) - HTTP Status Code: {code_str}]")
-            print(f"[Error Detail: {str(e)}]")
-            
-            if "ConnectTimeout" in type(e).__name__ or "timeout" in str(e).lower() or "ConnectError" in type(e).__name__:
-                print("\n🌐 [NETWORK DIAGNOSTIC ADVISORY]: Connection timed out while contacting Google Gemini servers.")
-                print("👉 Tip: Please check your internet connection, active VPN, firewall rules, or proxy configuration!\n")
-
-            print("[Traceback Details]:")
-            traceback.print_exc()
-            
-            if attempt == max_retries - 1:
-                print(f"[Max retries ({max_retries}) exhausted after network exception]")
-                break
-            
-            sleep_time = (initial_delay * (2 ** attempt)) + random.uniform(0.2, 0.8)
-            print(f"[Retrying in {sleep_time:.1f}s... (Attempt {attempt + 1}/{max_retries})]")
-            time.sleep(sleep_time)
-
-    # Clean, non-crashing user-facing fallback response
-    fallback_response = {
-        "french_response": "Désolé, la connexion est un peu lente. Peux-tu me répéter ta phrase ?",
-        "mentor_feedback": "Network connection timed out or hit API rate limits. Your session is active—feel free to type your message again!",
-        "internal_adaptation_level": "Network Timeout Fallback",
-        "is_exit": False,
-        "new_vocabulary_introduced": [],
-        "diagnostics": "NETWORK_TIMEOUT_RETRY"
-    }
-    return json.dumps(fallback_response)

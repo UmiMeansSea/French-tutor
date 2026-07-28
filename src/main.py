@@ -4,8 +4,6 @@ import time
 import json
 import traceback
 from dotenv import load_dotenv
-from google import genai
-from google.genai import types
 
 from database import get_chroma_collection, auto_ingest_knowledge
 from tutor_bot import create_chat, handle_user_message, update_chat_persona
@@ -24,30 +22,37 @@ def select_style_menu():
     print("3. Alice (The Eclectic Bibliophile) 📚 — Captivating, literary, history lover, boosts Courage & Knowledge")
     choice = input("Select mentor (1-3) [Default: 1]: ").strip()
     if choice == '2':
-        return "Derek (Strict Coach)"
+        return "Derek"
     elif choice == '3':
-        return "Alice (Storyteller)"
-    else:
-        return "Clara (Casual Friend)"
+        return "Alice"
+    return "Clara"
 
-def get_voice_speed(style):
-    style_clean = style.lower()
-    if "friend" in style_clean or "casual" in style_clean:
-        return 1150
-    elif "coach" in style_clean or "strict" in style_clean:
-        return 850
+def select_cefr_level():
+    print("\n--- Choose Your CEFR Target Level ---")
+    print("1. A1 (Beginner)")
+    print("2. A2 (Elementary)")
+    print("3. B1 (Intermediate)")
+    print("4. B2 (Upper Intermediate)")
+    print("5. C1 (Advanced)")
+    print("6. C2 (Mastery)")
+    choice = input("Select level (1-6) [Default: 1]: ").strip()
+    levels = {"1": "A1", "2": "A2", "3": "B1", "4": "B2", "5": "C1", "6": "C2"}
+    return levels.get(choice, "A1")
+
+def get_voice_speed(mentor_style):
+    s = mentor_style.lower()
+    if "derek" in s:
+        return 900
+    elif "alice" in s:
+        return 950
     return 1000
 
 def main():
     # Load environment variables
     load_dotenv()
-    api_key = os.environ.get("GEMINI_API_KEY")
-    if not api_key:
-        print("Warning: GEMINI_API_KEY environment variable not found in .env.")
-        api_key = input("Please enter your Gemini API Key: ").strip()
 
-    # Initialize Gemini client with resilient 60s timeout for network transport layer
-    client = genai.Client(api_key=api_key, http_options=types.HttpOptions(timeout=60000))
+    # Local Ollama client setup (client reference)
+    client = None
 
     # Initialize ChromaDB and auto-ingest
     collection = get_chroma_collection()
