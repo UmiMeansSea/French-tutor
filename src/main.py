@@ -73,10 +73,13 @@ def main():
     if not user_db_profile["profile_completed"]:
         print("\n👋 [FIRST-TIME MENTOR WELCOME]: Bonjour ! Welcome to your French AI Tutor!")
         u_name = input("What is your name?: ").strip() or "Learner"
-        u_town = input("Where are you from / what is your hometown?: ").strip() or "Paris"
-        save_user_profile_data(u_name, u_town, profile_completed=1)
+        u_town = input("Where are you from / what is your hometown?: ").strip() or "Home"
+        u_goal = input("What is your main goal? (e.g. Study abroad, DELF exam, Career, Travel): ").strip() or "Fluency"
+        u_uni = input("Which target university are you aiming for? (optional, e.g., Sorbonne University): ").strip() or ""
+        u_city = input("Which target French city are you aiming for? (e.g., Paris, Lyon): ").strip() or "Paris"
+        save_user_profile_data(u_name, u_town, target_goal=u_goal, target_university=u_uni, target_city=u_city, profile_completed=1)
         user_db_profile = get_user_profile_data()
-        print(f"\n✨ Enchanté, {user_db_profile['name']} from {user_db_profile['hometown']}! Profile initialized!\n")
+        print(f"\n✨ Enchanté, {user_db_profile['name']} from {user_db_profile['hometown']}! Target Goal: {user_db_profile['target_goal']} ({user_db_profile['target_city']}). Profile initialized!\n")
     
     # Initialize Chat Bot
     print("\nBonjour ! I am your empathetic French AI Mentor.")
@@ -110,7 +113,10 @@ def main():
         weak_spots=weak_spots, 
         user_memories=user_memories,
         user_name=user_db_profile["name"],
-        user_hometown=user_db_profile["hometown"]
+        user_hometown=user_db_profile["hometown"],
+        target_goal=user_db_profile["target_goal"],
+        target_university=user_db_profile["target_university"],
+        target_city=user_db_profile["target_city"]
     )
     
     # Prompt for Voice Mode
@@ -174,7 +180,7 @@ def main():
             if user_input.strip().lower() == '/profile':
                 mentor_style = select_style_menu()
                 save_profile(user_level, mentor_style, milestone_streak, weak_spots, profile.get("xp", 0), profile.get("level", 1), profile.get("badges", []), rpg_stats, user_memories)
-                chat = update_chat_persona(client, user_level, mentor_style, weak_spots, user_memories, turtle_mode, user_name=user_db_profile["name"], user_hometown=user_db_profile["hometown"])
+                chat = update_chat_persona(client, user_level, mentor_style, weak_spots, user_memories, turtle_mode, user_name=user_db_profile["name"], user_hometown=user_db_profile["hometown"], target_goal=user_db_profile["target_goal"], target_university=user_db_profile["target_university"], target_city=user_db_profile["target_city"])
                 current_speed = get_voice_speed(mentor_style) if not turtle_mode else 650
                 try:
                     from rich_ui import render_top_dashboard
@@ -185,7 +191,7 @@ def main():
 
             if user_input.strip().lower() == '/speed':
                 turtle_mode = not turtle_mode
-                chat = update_chat_persona(client, user_level, mentor_style, weak_spots, user_memories, turtle_mode, user_name=user_db_profile["name"], user_hometown=user_db_profile["hometown"])
+                chat = update_chat_persona(client, user_level, mentor_style, weak_spots, user_memories, turtle_mode, user_name=user_db_profile["name"], user_hometown=user_db_profile["hometown"], target_goal=user_db_profile["target_goal"], target_university=user_db_profile["target_university"], target_city=user_db_profile["target_city"])
                 if turtle_mode:
                     print("\n[Pacing Mode: Turtle 🐢 (Deliberate, slow, clear pacing injected into system prompt)]\n")
                 else:

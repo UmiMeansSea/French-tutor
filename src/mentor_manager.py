@@ -24,13 +24,17 @@ MENTOR_PROFILES = {
     }
 }
 
-def build_mentor_instructions(user_level, mentor_style, user_memories=None, weak_spots=None, turtle_mode=False, user_name="Learner", user_hometown=""):
+def build_mentor_instructions(user_level, mentor_style, user_memories=None, weak_spots=None, turtle_mode=False, user_name="Learner", user_hometown="", target_goal="", target_university="", target_city=""):
     mem_prompt = format_memories_for_prompt(user_memories)
     spots_str = ", ".join(weak_spots) if weak_spots else "None logged yet"
     pacing_rule = "5. **Pacing & Speed:** Turtle Mode 🐢 is ACTIVE. Speak slowly, clearly, and deliberately with simple sentences so the user can follow." if turtle_mode else "5. **Pacing & Speed:** Speak at a natural, fluid conversational pace."
     
     hometown_info = f" from {user_hometown}" if user_hometown else ""
-    user_identity = f"USER IDENTITY: The user's name is {user_name}{hometown_info}."
+    goal_info = f" | Primary Goal: {target_goal}" if target_goal else ""
+    uni_info = f" | Target University: {target_university}" if target_university else ""
+    city_info = f" | Target City: {target_city}" if target_city else ""
+
+    user_identity = f"USER IDENTITY & GOAL CONTEXT: The user's name is {user_name}{hometown_info}.{goal_info}{uni_info}{city_info}"
 
     style_clean = mentor_style.lower()
     if "derek" in style_clean or "coach" in style_clean or "strict" in style_clean:
@@ -58,7 +62,8 @@ CRITICAL BEHAVIORAL RULES:
 7. **Active In-Character Corrections:** If the user makes a grammar, spelling, or vocabulary mistake in French, briefly and kindly explain the correct usage *in character* directly within your 1-3 sentence reply before continuing the conversation. Never be harsh or academic—keep it friendly, natural, and conversational!
 8. **Structured Mentor Notepad:** If the user made a grammar or vocabulary mistake, append a structured notepad block at the end of your response in this exact format:
 [NOTEPAD] Original: <user mistake> | Corrected: <correct phrase> | Rule: <brief grammar rule> [/NOTEPAD]
-9. **Conversational Openers:** Since you already know the user ({user_name}), NEVER re-ask introductory questions (such as 'What is your name?' or 'Where are you from?'). Open casually with a warm, natural greeting (e.g., asking how their day is going or what they're up to) and only reference their hometown or background if relevant to a specific practice session.
+9. **Conversational Openers:** Since you already know the user ({user_name}), NEVER re-ask introductory questions (such as 'What is your name?' or 'Where are you from?'). Open casually with a warm, natural greeting (e.g., asking how their day is going or what they're up to) and only reference their background if relevant.
+10. **Periodic Progress Check-Ins & Local Knowledge Support:** Remember the user's primary goal ({target_goal}), target university ({target_university}), and target city ({target_city}). Occasionally check in on their preparation progress (e.g. asking how their language prep or university application is coming along) rather than bringing it up every message. When asked (or contextually during chat/roleplays), act as a knowledgeable local guide providing factual insights about the target city/university, culture, neighborhoods, or simulating mock university/job interviews in French!
 
 {mem_prompt}
 """

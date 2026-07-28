@@ -19,6 +19,9 @@ def init_sqlite_db():
             id INTEGER PRIMARY KEY DEFAULT 1,
             name TEXT DEFAULT 'Learner',
             hometown TEXT DEFAULT '',
+            target_goal TEXT DEFAULT '',
+            target_university TEXT DEFAULT '',
+            target_city TEXT DEFAULT '',
             profile_completed INTEGER DEFAULT 0,
             level TEXT DEFAULT 'A1',
             xp INTEGER DEFAULT 0,
@@ -34,6 +37,12 @@ def init_sqlite_db():
         cursor.execute("ALTER TABLE user_profile ADD COLUMN name TEXT DEFAULT 'Learner'")
     if "hometown" not in columns:
         cursor.execute("ALTER TABLE user_profile ADD COLUMN hometown TEXT DEFAULT ''")
+    if "target_goal" not in columns:
+        cursor.execute("ALTER TABLE user_profile ADD COLUMN target_goal TEXT DEFAULT ''")
+    if "target_university" not in columns:
+        cursor.execute("ALTER TABLE user_profile ADD COLUMN target_university TEXT DEFAULT ''")
+    if "target_city" not in columns:
+        cursor.execute("ALTER TABLE user_profile ADD COLUMN target_city TEXT DEFAULT ''")
     if "profile_completed" not in columns:
         cursor.execute("ALTER TABLE user_profile ADD COLUMN profile_completed INTEGER DEFAULT 0")
 
@@ -60,7 +69,7 @@ def init_sqlite_db():
         )
     """)
     
-    cursor.execute("INSERT OR IGNORE INTO user_profile (id, name, hometown, profile_completed, level, xp, streak) VALUES (1, 'Learner', '', 0, 'A1', 0, 0)")
+    cursor.execute("INSERT OR IGNORE INTO user_profile (id, name, hometown, target_goal, target_university, target_city, profile_completed, level, xp, streak) VALUES (1, 'Learner', '', '', '', '', 0, 'A1', 0, 0)")
     conn.commit()
     conn.close()
 
@@ -68,27 +77,30 @@ def get_user_profile_data():
     db_path = get_sqlite_path()
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
-    cursor.execute("SELECT name, hometown, profile_completed, level, xp, streak FROM user_profile WHERE id = 1")
+    cursor.execute("SELECT name, hometown, target_goal, target_university, target_city, profile_completed, level, xp, streak FROM user_profile WHERE id = 1")
     row = cursor.fetchone()
     conn.close()
     if row:
         return {
             "name": row[0] or "Learner",
             "hometown": row[1] or "",
-            "profile_completed": bool(row[2]),
-            "level": row[3] or "A1",
-            "xp": row[4] or 0,
-            "streak": row[5] or 0
+            "target_goal": row[2] or "",
+            "target_university": row[3] or "",
+            "target_city": row[4] or "",
+            "profile_completed": bool(row[5]),
+            "level": row[6] or "A1",
+            "xp": row[7] or 0,
+            "streak": row[8] or 0
         }
-    return {"name": "Learner", "hometown": "", "profile_completed": False, "level": "A1", "xp": 0, "streak": 0}
+    return {"name": "Learner", "hometown": "", "target_goal": "", "target_university": "", "target_city": "", "profile_completed": False, "level": "A1", "xp": 0, "streak": 0}
 
-def save_user_profile_data(name, hometown, profile_completed=1):
+def save_user_profile_data(name, hometown, target_goal="", target_university="", target_city="", profile_completed=1):
     db_path = get_sqlite_path()
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
     cursor.execute(
-        "UPDATE user_profile SET name = ?, hometown = ?, profile_completed = ?, last_active = CURRENT_TIMESTAMP WHERE id = 1",
-        (name.strip(), hometown.strip(), 1 if profile_completed else 0)
+        "UPDATE user_profile SET name = ?, hometown = ?, target_goal = ?, target_university = ?, target_city = ?, profile_completed = ?, last_active = CURRENT_TIMESTAMP WHERE id = 1",
+        (name.strip(), hometown.strip(), target_goal.strip(), target_university.strip(), target_city.strip(), 1 if profile_completed else 0)
     )
     conn.commit()
     conn.close()
