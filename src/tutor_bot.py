@@ -106,7 +106,10 @@ class OllamaChatSession:
         try:
             response = ollama.chat(
                 model=self.model_name,
-                messages=self.messages
+                messages=self.messages,
+                options={
+                    'num_ctx': 2048
+                }
             )
             tutor_reply = response['message']['content']
             norm_reply = normalize_tutor_response(tutor_reply)
@@ -119,7 +122,10 @@ class OllamaChatSession:
                     self.model_name = "llama3:latest"
                     response = ollama.chat(
                         model="llama3:latest",
-                        messages=self.messages
+                        messages=self.messages,
+                        options={
+                            'num_ctx': 2048
+                        }
                     )
                     tutor_reply = response['message']['content']
                     norm_reply = normalize_tutor_response(tutor_reply)
@@ -157,6 +163,6 @@ def handle_user_message(user_input, client, chat, collection=None):
             {"role": "system", "content": sys_inst},
             {"role": "user", "content": user_input}
         ]
-        response = ollama.chat(model=active_model, messages=messages)
+        response = ollama.chat(model=active_model, messages=messages, options={'num_ctx': 2048})
         return response['message']['content']
 
