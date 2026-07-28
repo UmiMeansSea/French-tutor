@@ -2,13 +2,35 @@ import os
 import sys
 import time
 import json
+import traceback
 from dotenv import load_dotenv
 from google import genai
 
 from database import get_chroma_collection, auto_ingest_knowledge
-from tutor_bot import create_chat, handle_user_message
+from tutor_bot import create_chat, handle_user_message, update_chat_persona
 from user_profile import load_profile, save_profile
 from audio_utils import speak_french, listen_to_mic, VOICE_AVAILABLE, TTS_AVAILABLE
+
+def select_style_menu():
+    print("\n--- Select Your Mentor Profile ---")
+    print("1. Casual Friend (Warm, funny, informal texting slang)")
+    print("2. Strict Coach (Direct male academic, rigorous corrections + encouraging praise)")
+    print("3. Storyteller (Captivating narratives, cultural facts & classics)")
+    choice = input("Select profile (1-3) [Default: 1]: ").strip()
+    if choice == '2':
+        return "Strict Coach"
+    elif choice == '3':
+        return "Storyteller"
+    else:
+        return "Casual Friend"
+
+def get_voice_speed(style):
+    style_clean = style.lower()
+    if "friend" in style_clean or "casual" in style_clean:
+        return 1150
+    elif "coach" in style_clean or "strict" in style_clean:
+        return 850
+    return 1000
 
 def main():
     # Load environment variables
@@ -38,9 +60,7 @@ def main():
             print("Defaulting to A2.")
             user_level = 'A2'
             
-        mentor_style = input("What kind of mentor style do you prefer? (e.g., Casual Friend, Strict Coach, Storyteller): ").strip()
-        if not mentor_style:
-            mentor_style = "Balanced hybrid of a friend, coach, and storyteller"
+        mentor_style = select_style_menu()
             
         save_profile(user_level, mentor_style)
         print("Profile saved successfully!")
@@ -55,12 +75,9 @@ def main():
     else:
         print("\n[Voice Input (STT) is unavailable because speech_recognition or pyaudio is missing. Defaulting to typing mode.]")
     
-    print(f"\nAwesome! Your Chameleon Mentor is ready, locked in at {user_level}.")
+    print(f"\nAwesome! Your Chameleon Mentor is ready, locked in at {user_level} ({mentor_style}).")
     print("Try asking it: 'Should I use tu or vous with my boss?' or just say 'Bonjour!'")
-    if VOICE_AVAILABLE:
-        print("Tip: Type '/voice' at any time to toggle Voice Mode on/off.\n")
-    else:
-        print("Tip: Typing mode active. Responses will be spoken aloud if gTTS is installed.\n")
+    print("Tip: Type '/profile' to change profiles; type '/voice' to toggle Voice Mode.\n")
 
     session_metrics = {
         "total_turns": 0,
@@ -74,10 +91,8 @@ def main():
             if voice_mode:
                 user_input = listen_to_mic()
                 if not user_input.strip():
-                    retry = input("Speech not captured. Try speaking again? (y/n) [Default: n]: ").strip().lower()
-                    if retry != 'y':
-                        print("[Switching to typing mode. Type '/voice' to speak again.]\n")
-                        voice_mode = False
+                    print("[Speech not captured. Automatically switching to typing mode. Type '/voice' to speak again.]\n")
+                    voice_mode = False
                     continue
                 print(f"You (Spoken): {user_input}")
             else:
@@ -92,6 +107,13 @@ def main():
                     print(f"\n[Voice Mode {'enabled' if voice_mode else 'disabled'}]\n")
                 else:
                     print("\n[Cannot enable Voice Mode: PyAudio or SpeechRecognition libraries are missing.]\n")
+                continue
+
+            if user_input.strip().lower() == '/profile':
+                mentor_style = select_style_menu()
+                save_profile(user_level, mentor_style)
+                update_chat_persona(chat, user_level, mentor_style)
+                print(f"\n[Mentor style updated dynamically to: {mentor_style}]\n")
                 continue
                 
             session_metrics["total_turns"] += 1
@@ -111,7 +133,7 @@ def main():
                 print()
                 
                 if voice_mode and french_resp:
-                    speak_french(french_resp)
+                    speak_french(french_resp, speed=get_voice_speed(mentor_style))
                 if parsed.get('new_vocabulary_introduced'):
                     session_metrics["vocabulary_learned"].extend(parsed['new_vocabulary_introduced'])
                 if parsed.get('diagnostics'):
@@ -139,9 +161,13 @@ def main():
             except Exception:
                 print(f"\nTutor: {reply}\n")
                 if voice_mode:
-                    speak_french(reply)
+                    speak_french(reply, speed=get_voice_speed(mentor_style))
         except Exception as e:
-            print(f"An error occurred: {e}")
+            print(f"\n[An error occurred during runtime:]")
+            traceback.print_exc()
+            if voice_mode:
+                print("\n[Error detected in Voice Mode. Automatically switching to typing mode.]\n")
+                voice_mode = False
 
 if __name__ == "__main__":
     main()

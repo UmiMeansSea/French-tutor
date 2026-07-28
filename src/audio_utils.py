@@ -20,7 +20,7 @@ try:
 except ImportError:
     pass
 
-def speak_french(text):
+def speak_french(text, speed=1000):
     if not TTS_AVAILABLE:
         return
     if not text.strip():
@@ -37,6 +37,9 @@ def speak_french(text):
         # Open command
         open_command = f'open "{temp_file}" type mpegvideo alias mymp3'
         winmm.mciSendStringW(open_command, None, 0, 0)
+        
+        # Set speed
+        winmm.mciSendStringW(f'set mymp3 speed {speed}', None, 0, 0)
         
         # Play command (blocks until finished)
         winmm.mciSendStringW('play mymp3 wait', None, 0, 0)

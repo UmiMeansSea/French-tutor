@@ -1,6 +1,7 @@
 import time
 import random
 import json
+import threading
 from pydantic import BaseModel, Field
 from typing import Optional
 from google import genai
@@ -16,22 +17,53 @@ class TutorResponse(BaseModel):
     diagnostics: Optional[str] = None
 
 def get_system_instruction(user_level, mentor_style):
-    return f"""
-You are an advanced "Chameleon Mentor"—a deeply empathetic, highly supportive French language hybrid of a best friend, a sharp grammar coach, and a curious storyteller. 
-The user is currently starting at a {user_level} CEFR level. Their preferred baseline mentor style is: {mentor_style}.
-
-RULES:
-1. ADAPTIVE LEVEL: Strictly match your vocabulary, complexity, and grammar expectations to the user's current level.
-2. CHAMELEON BILINGUAL MENTOR: Emulate an encouraging bilingual friend/mentor who speaks clear English for explanations but naturally weaves in authentic French phrases and conversational markers. Dynamically adjust your ratio of casual slang vs. formal correction based on the user's current tone, context, and preferred style ({mentor_style}). 
-3. CULTURAL TIDBITS: Occasionally drop side notes containing real-world cultural advice, social rules, texting slang, or practical tips relevant to the conversation.
-4. EMPATHETIC COACH: When the user makes a mistake, correct them warmly and gently. Provide this feedback in the `mentor_feedback` field.
-5. IMPLICIT TRACKING: Silently evaluate their grammar consistency, syntax complexity, and lexical range turn-by-turn. Use the `internal_adaptation_level` field to output a quick internal note on whether you should ramp up complexity or ease back for your next turn. Do NOT show them a rigid score.
-6. RAG KNOWLEDGE: If grammar context from the database is provided, use that specific rule to explain mistakes.
-7. PRAGMATIC & CULTURAL SENSITIVITY: Recognize that the user's lower vocabulary or direct translations from English may sound unintentionally blunt or rude in French. Never scold or lecture them. Instead, in the `mentor_feedback`, gently suggest softer, more polite native phrasing (e.g., "Pourrais-tu...", "J'aimerais...") as a friendly cultural tip so they sound like a polite local.
-8. ENGLISH-TO-FRENCH BRIDGE: If the user inputs text entirely in English, act as a live bridge. Translate their intent into natural, level-appropriate French in the `french_response`, and explicitly break down the new words or sentence structures inside the `mentor_feedback` field.
-9. SMART EXIT DETECTION: Monitor for standard exit or goodbye cues (e.g., "au revoir", "bye", "goodbye", "à plus tard"). If detected, set `is_exit` to true and respond with a warm, natural sign-off in French.
-10. SESSION ANALYTICS: Actively track any new words or phrases you teach the user in the `new_vocabulary_introduced` list. If you notice a recurring grammar strength or weakness, note it briefly in the `diagnostics` field.
+    # Core shared curriculum targets and rules
+    core_rules = f"""
+SHARED CORE CURRICULUM & RULES:
+1. ADAPTIVE LEVEL: Strictly scale your vocabulary, sentence complexity, and grammar rules to match the user's active CEFR level: {user_level}.
+2. PRAGMATIC & CULTURAL SENSITIVITY (Rude Novice Handler): Recognize when a user's direct translation from English makes them sound unintentionally blunt in French. Never scold or lecture them. Instead, in the `mentor_feedback` field, gently suggest softer, polite native phrasing (e.g., using "Pourrais-tu...", "J'aimerais...", or polite markers) so they sound like a polite local rather than an impatient tourist.
+3. ENGLISH-TO-FRENCH BRIDGE: If the user inputs text entirely in English, translate their intent into natural, level-appropriate French in `french_response` and break down new vocabulary in `mentor_feedback`.
+4. IMPLICIT PROGRESS TRACKING: Silently evaluate the user's grammar consistency, syntax complexity, and lexical range. Output your evaluation in the `internal_adaptation_level` field to guide difficulty adjustments for subsequent turns. Do NOT show this rating to the user.
+5. RAG KNOWLEDGE: If grammar context from the database is provided, use that specific rule to explain mistakes.
+6. SMART EXIT DETECTION: Monitor for standard exit or goodbye cues (e.g., "au revoir", "bye", "goodbye"). If detected, set `is_exit` to true and respond with a warm, natural sign-off in French.
+7. SESSION ANALYTICS: Track new words or phrases you teach the user in the `new_vocabulary_introduced` list. Note any recurring grammar strengths or weaknesses in the `diagnostics` field.
 """
+
+    style_clean = mentor_style.lower()
+    if "friend" in style_clean or "casual" in style_clean:
+        persona = f"""
+ROLE & PERSONA: CASUAL FRIEND
+- You are an upbeat, funny, warm, and highly laid-back bilingual French mentor/best friend.
+- Speak with humor and keep explanations light, engaging, and informal.
+- Regularly weave in texting slang, colloquialisms, and common day-to-day native expressions.
+- You are locked in at CEFR level {user_level}.
+"""
+    elif "coach" in style_clean or "strict" in style_clean:
+        persona = f"""
+ROLE & PERSONA: STRICT COACH (Male)
+- You are a highly direct, structured, and authoritative male French grammar coach/academic.
+- Speak directly, maintaining a professional and serious tone.
+- Rigorously correct every single grammar, syntax, or spelling error in the user's message.
+- CRITICAL: Balance your strict correction with genuine, earned, and encouraging praise when the user's structures are correct.
+- You are locked in at CEFR level {user_level}.
+"""
+    elif "storyteller" in style_clean or "story" in style_clean:
+        persona = f"""
+ROLE & PERSONA: STORYTELLER
+- You are a highly captivating, articulate, and expressive bilingual French storyteller.
+- Weave fascinating cultural facts, historical side notes, French classics, legends, or geography into your conversations.
+- Teach vocabulary organically by telling stories or sharing literary references (like French literature, geography, and native customs).
+- You are locked in at CEFR level {user_level}.
+"""
+    else:
+        persona = f"""
+ROLE & PERSONA: CHAMELEON HYBRID
+- Act as a hybrid of a friend, coach, and storyteller.
+- Adjust your tone to fit the user's preference ({mentor_style}).
+- You are locked in at CEFR level {user_level}.
+"""
+
+    return f"{persona}\n{core_rules}"
 
 def create_chat(client, user_level, mentor_style):
     return client.chats.create(
@@ -44,39 +76,73 @@ def create_chat(client, user_level, mentor_style):
         )
     )
 
+def update_chat_persona(chat, user_level, mentor_style):
+    chat.config.system_instruction = get_system_instruction(user_level, mentor_style)
+
+RAG_ENABLED = True
+IS_HEALING = False
+
+def heal_rag_connection(client):
+    global RAG_ENABLED, IS_HEALING
+    # Delay first check slightly to let current user turn finish
+    time.sleep(10)
+    while not RAG_ENABLED:
+        try:
+            client.models.embed_content(
+                model="gemini-embedding-001",
+                contents="ping connectivity check"
+            )
+            RAG_ENABLED = True
+            IS_HEALING = False
+            print("\n[RAG connection re-established. Dynamic document retrieval re-enabled.]\n")
+            break
+        except Exception:
+            time.sleep(15)
+
 def handle_user_message(user_input, client, chat, collection):
+    global RAG_ENABLED, IS_HEALING
+    
     # Sliding window memory (Keep last 6 messages)
     if hasattr(chat, "_history") and len(chat._history) > 6:
         chat._history = chat._history[-6:]
     elif hasattr(chat, "history") and len(chat.history) > 6:
         chat.history = chat.history[-6:]
 
-    embed_response = client.models.embed_content(
-        model="gemini-embedding-001", 
-        contents=user_input
-    )
-    user_vector = embed_response.embeddings[0].values
+    augmented_message = user_input
 
-    results = collection.query(
-        query_embeddings=[user_vector],
-        n_results=2
-    )
-    
-    valid_rules = []
-    if results['documents'] and results['distances']:
-        for i, distance in enumerate(results['distances'][0]):
-            if distance <= 1.2:
-                valid_rules.append(results['documents'][0][i])
-    
-    if valid_rules:
-        context_str = "\n".join(valid_rules)
-        augmented_message = f"""
-        Database Context: {context_str}
-        
-        User Message: {user_input}
-        """
-    else:
-        augmented_message = user_input
+    if RAG_ENABLED:
+        try:
+            embed_response = client.models.embed_content(
+                model="gemini-embedding-001", 
+                contents=user_input
+            )
+            user_vector = embed_response.embeddings[0].values
+
+            results = collection.query(
+                query_embeddings=[user_vector],
+                n_results=2
+            )
+            
+            valid_rules = []
+            if results['documents'] and results['distances']:
+                for i, distance in enumerate(results['distances'][0]):
+                    if distance <= 1.2:
+                        valid_rules.append(results['documents'][0][i])
+            
+            if valid_rules:
+                context_str = "\n".join(valid_rules)
+                augmented_message = f"""
+                Database Context: {context_str}
+                
+                User Message: {user_input}
+                """
+        except Exception:
+            RAG_ENABLED = False
+            if not IS_HEALING:
+                IS_HEALING = True
+                print("\n[Warning: Embedding server offline. Bypassing RAG and starting background self-healing...]")
+                threading.Thread(target=heal_rag_connection, args=(client,), daemon=True).start()
+            augmented_message = user_input
         
     max_retries = 3
     delay = 2.0
