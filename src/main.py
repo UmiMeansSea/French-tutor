@@ -45,7 +45,8 @@ def main():
         print("Warning: GEMINI_API_KEY environment variable not found in .env.")
         api_key = input("Please enter your Gemini API Key: ").strip()
 
-    client = genai.Client(api_key=api_key, http_options={'timeout': 5.0})
+    # Initialize Gemini client with resilient 30s timeout
+    client = genai.Client(api_key=api_key, http_options={'timeout': 30.0})
 
     # Initialize ChromaDB and auto-ingest
     collection = get_chroma_collection()
