@@ -180,13 +180,12 @@ def main():
                 rpg_stats, _ = award_stat_xp(rpg_stats, "Charm", 15, mentor_style)
                 save_profile(user_level, mentor_style, milestone_streak, weak_spots, profile.get("xp", 0), profile.get("level", 1), profile.get("badges", []), rpg_stats)
 
+            pending_xp_award = None
             if user_input.strip().lower() == '/roleplay':
                 scenario = select_roleplay_menu()
                 user_input = scenario["prompt"]
                 session_metrics["roleplay_completed"] = True
-                profile = add_xp(profile or {}, 50, f"Roleplay: {scenario['title']}")
-                rpg_stats, _ = award_stat_xp(rpg_stats, "Courage", 15, mentor_style)
-                save_profile(user_level, mentor_style, milestone_streak, weak_spots, profile.get("xp", 0), profile.get("level", 1), profile.get("badges", []), rpg_stats)
+                pending_xp_award = (50, f"Roleplay: {scenario['title']}", "Courage", 15)
 
             if user_input.strip().lower() == '/badges':
                 print(f"\n--- Player Achievement Showcase ---")
@@ -203,16 +202,12 @@ def main():
             if user_input.strip().lower() == '/shadow':
                 user_input = "Please give me 1 native French sentence with proper liaisons for me to shadow and repeat back."
                 session_metrics["shadow_completed"] = True
-                profile = add_xp(profile or {}, 50, "Shadowing Drill")
-                rpg_stats, _ = award_stat_xp(rpg_stats, "Wit", 15, mentor_style)
-                save_profile(user_level, mentor_style, milestone_streak, weak_spots, profile.get("xp", 0), profile.get("level", 1), profile.get("badges", []), rpg_stats)
+                pending_xp_award = (50, "Shadowing Drill", "Wit", 15)
                 print("\n[Starting Interactive Shadowing Drill...]\n")
 
             if user_input.strip().lower() == '/story':
                 user_input = f"Please read me a short 3-sentence story in French appropriate for my level ({user_level}), and ask me 2 simple questions."
-                profile = add_xp(profile or {}, 40, "Daily Story Reading")
-                rpg_stats, _ = award_stat_xp(rpg_stats, "Knowledge", 15, mentor_style)
-                save_profile(user_level, mentor_style, milestone_streak, weak_spots, profile.get("xp", 0), profile.get("level", 1), profile.get("badges", []), rpg_stats)
+                pending_xp_award = (40, "Daily Story Reading", "Knowledge", 15)
                 print("\n[Starting Daily Reading Session...]\n")
 
             if user_input.strip().lower() == '/milestones':
@@ -234,17 +229,33 @@ def main():
                 current_speed = max(650, current_speed - 200)
                 print(f"*(Speed Adapted: Dropped speaking rate to {current_speed} for clarity)*")
                 
-            session_metrics["total_turns"] += 1
-            profile = add_xp(profile or {}, 15, "Conversation Turn")
-            rpg_stats, _ = award_stat_xp(rpg_stats, "Charm", 5, mentor_style)
-            profile, _ = check_badges(profile or {}, session_metrics)
-            save_profile(user_level, mentor_style, milestone_streak, weak_spots, profile.get("xp", 0), profile.get("level", 1), profile.get("badges", []), rpg_stats)
-            
             reply = handle_user_message(user_input, client, chat, collection)
             try:
                 import json
                 parsed = json.loads(reply)
                 french_resp = parsed.get('french_response', '')
+                diag = parsed.get('diagnostics')
+                
+                # Check for network timeout or API error fallbacks -> Skip XP rewards
+                if diag in ["NETWORK_TIMEOUT_RETRY", "API_TEMPORARY_LIMIT_BREATHER"]:
+                    print(f"\nTutor: {french_resp}")
+                    if parsed.get('mentor_feedback'):
+                        print(f"Feedback: {parsed['mentor_feedback']}\n")
+                    continue
+
+                # SUCCESS: Award XP only after valid API turn response
+                session_metrics["total_turns"] += 1
+                profile = add_xp(profile or {}, 15, "Conversation Turn")
+                rpg_stats, _ = award_stat_xp(rpg_stats, "Charm", 5, mentor_style)
+
+                if pending_xp_award:
+                    xp_amt, xp_reason, stat_name, stat_amt = pending_xp_award
+                    profile = add_xp(profile or {}, xp_amt, xp_reason)
+                    rpg_stats, _ = award_stat_xp(rpg_stats, stat_name, stat_amt, mentor_style)
+
+                profile, _ = check_badges(profile or {}, session_metrics)
+                save_profile(user_level, mentor_style, milestone_streak, weak_spots, profile.get("xp", 0), profile.get("level", 1), profile.get("badges", []), rpg_stats)
+
                 print(f"\nTutor: {french_resp}")
                 if parsed.get('phonetic_breakdown'):
                     print(f"Phonetics & Blending: {parsed['phonetic_breakdown']}")
@@ -260,9 +271,9 @@ def main():
                     speak_french(french_resp, speed=current_speed, mentor_style=mentor_style)
                 if parsed.get('new_vocabulary_introduced'):
                     session_metrics["vocabulary_learned"].extend(parsed['new_vocabulary_introduced'])
-                if parsed.get('diagnostics'):
-                    session_metrics["diagnostics_flagged"].append(parsed['diagnostics'])
-                    weak_spots.append(parsed['diagnostics'])
+                if diag:
+                    session_metrics["diagnostics_flagged"].append(diag)
+                    weak_spots.append(diag)
                     rpg_stats, _ = award_stat_xp(rpg_stats, "Memory", 10, mentor_style)
                     save_profile(user_level, mentor_style, milestone_streak, weak_spots, profile.get("xp", 0), profile.get("level", 1), profile.get("badges", []), rpg_stats)
                 
