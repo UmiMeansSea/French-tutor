@@ -20,7 +20,7 @@ try:
 except ImportError:
     pass
 
-def speak_french(text, mentor_style="clara"):
+def speak_french(text, speed=1000, mentor_style="clara"):
     if not TTS_AVAILABLE:
         return
     if not text.strip():

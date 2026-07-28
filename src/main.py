@@ -285,7 +285,7 @@ def main():
                     print()
                 
                 if voice_mode and french_resp:
-                    speak_french(french_resp, speed=current_speed, mentor_style=mentor_style)
+                    speak_french(french_resp, mentor_style=mentor_style)
                 if parsed.get('new_vocabulary_introduced'):
                     session_metrics["vocabulary_learned"].extend(parsed['new_vocabulary_introduced'])
                 if diag:
@@ -328,7 +328,7 @@ def main():
             except Exception:
                 print(f"\nTutor: {reply}\n")
                 if voice_mode:
-                    speak_french(reply, speed=current_speed)
+                    speak_french(reply, mentor_style=mentor_style)
         except Exception as e:
             print(f"\n[An error occurred during runtime:]")
             traceback.print_exc()
