@@ -113,10 +113,11 @@ def main():
             if voice_mode:
                 user_input = listen_to_mic()
                 if not user_input.strip():
-                    print("[Speech not captured. Automatically switching to typing mode. Type '/voice' to speak again.]\n")
-                    voice_mode = False
-                    continue
-                print(f"You (Spoken): {user_input}")
+                    user_input = input("You (Mic silent/timed out — press Enter to retry mic, or type message): ")
+                    if not user_input.strip():
+                        continue
+                else:
+                    print(f"You (Spoken): {user_input}")
             else:
                 user_input = input("You: ")
                 

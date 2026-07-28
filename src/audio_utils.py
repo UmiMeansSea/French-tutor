@@ -123,28 +123,35 @@ def listen_to_mic(silence_threshold=2.8, sample_rate=16000, max_duration=60.0):
             wf.setframerate(sample_rate)
             wf.writeframes(recording.tobytes())
             
-        # Transcribe using SpeechRecognition
+        # Transcribe using SpeechRecognition with timeout protection
         recognizer = sr.Recognizer()
+        recognizer.operation_timeout = 8.0  # Max 8 seconds for Google Speech API response
         with sr.AudioFile(temp_wav) as source:
             audio = recognizer.record(source)
             
         # Cleanup temp WAV file immediately
         if os.path.exists(temp_wav):
-            os.remove(temp_wav)
+            try:
+                os.remove(temp_wav)
+            except Exception:
+                pass
             
-        # Attempt French transcription first
+        # Attempt French transcription first, fallback to English
         try:
             text = recognizer.recognize_google(audio, language="fr-FR")
-            return text
+            return text.strip()
         except sr.UnknownValueError:
             try:
                 text = recognizer.recognize_google(audio, language="en-US")
-                return text
-            except sr.UnknownValueError:
-                print("[Speech not recognized. Please try again.]")
+                return text.strip()
+            except Exception:
+                print("\n[Speech not recognized. Retrying...]")
                 return ""
+        except (sr.RequestError, Exception) as req_err:
+            print(f"\n[Speech Service Timeout/Error: {req_err}]")
+            return ""
     except Exception as e:
-        print(f"[Microphone Error: {e}]")
+        print(f"\n[Microphone Error: {e}]")
         if os.path.exists(temp_wav):
             try:
                 os.remove(temp_wav)
