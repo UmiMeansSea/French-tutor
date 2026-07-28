@@ -23,7 +23,6 @@ def get_system_instruction(user_level, mentor_style, weak_spots=None, user_memor
 def get_active_ollama_model():
     try:
         models_data = ollama.list()
-        # Handle dict or object responses from ollama library
         models_list = models_data.get('models', []) if isinstance(models_data, dict) else getattr(models_data, 'models', [])
         names = []
         for m in models_list:
@@ -33,11 +32,15 @@ def get_active_ollama_model():
                 names.append(getattr(m, 'model', getattr(m, 'name', '')))
         
         valid_names = [n for n in names if n]
+        for pref in ["qwen3:14b", "qwen3", "qwen2.5:14b", "llama3:latest", "llama3"]:
+            for name in valid_names:
+                if pref in name.lower():
+                    return name
         if valid_names:
             return valid_names[0]
     except Exception:
         pass
-    return "llama3:latest"
+    return "qwen3:14b"
 
 def normalize_tutor_response(tutor_reply):
     if not tutor_reply or not str(tutor_reply).strip() or str(tutor_reply).strip() == "{}":
