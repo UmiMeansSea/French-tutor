@@ -121,22 +121,34 @@ def handle_user_message(user_input, client, chat, collection):
             response = chat.send_message(augmented_message)
             return response.text
         except APIError as e:
+            code = getattr(e, 'code', 'Unknown HTTP Status')
+            msg = getattr(e, 'message', str(e))
+            details = getattr(e, 'details', '')
+            print(f"\n[Gemini APIError (Status Code: {code}) - Message: {msg}]")
+            if details:
+                print(f"[API Details: {details}]")
+            
             if attempt == max_retries - 1:
-                print(f"\n[Gemini API rate limit or error reached (Code {getattr(e, 'code', '429')}). Attempt {attempt + 1}/{max_retries}]")
+                print(f"[Max retries ({max_retries}) exhausted for APIError Code {code}]")
                 break
             
-            # Exponential backoff with jitter
             sleep_time = (initial_delay * (2 ** attempt)) + random.uniform(0.2, 0.8)
-            print(f"\n[API busy / rate-limited (Error {getattr(e, 'code', '429')}). Retrying in {sleep_time:.1f}s... (Attempt {attempt + 1}/{max_retries})]")
+            print(f"[Retrying in {sleep_time:.1f}s... (Attempt {attempt + 1}/{max_retries})]")
             time.sleep(sleep_time)
         except Exception as e:
-            err_str = str(e)
+            import traceback
+            code_str = getattr(e, 'code', None) or getattr(e, 'status_code', None) or 'N/A'
+            print(f"\n[API Exception ({type(e).__name__}) - HTTP Status Code: {code_str}]")
+            print(f"[Error Detail: {str(e)}]")
+            print("[Traceback Details]:")
+            traceback.print_exc()
+            
             if attempt == max_retries - 1:
-                print(f"\n[Network connection timeout after {max_retries} attempts: {err_str[:60]}...]")
+                print(f"[Max retries ({max_retries}) exhausted after network exception]")
                 break
             
             sleep_time = (initial_delay * (2 ** attempt)) + random.uniform(0.2, 0.8)
-            print(f"\n[Network timeout. Retrying in {sleep_time:.1f}s... (Attempt {attempt + 1}/{max_retries})]")
+            print(f"[Retrying in {sleep_time:.1f}s... (Attempt {attempt + 1}/{max_retries})]")
             time.sleep(sleep_time)
 
     # Clean, non-crashing user-facing fallback response
