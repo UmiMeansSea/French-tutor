@@ -74,10 +74,9 @@ def main():
             if voice_mode:
                 user_input = listen_to_mic()
                 if not user_input.strip():
-                    try:
-                        import pyaudio
-                    except ImportError:
-                        print("[Disabling Voice Mode: PyAudio is not installed. Falling back to typing mode.]\n")
+                    retry = input("Speech not captured. Try speaking again? (y/n) [Default: n]: ").strip().lower()
+                    if retry != 'y':
+                        print("[Switching to typing mode. Type '/voice' to speak again.]\n")
                         voice_mode = False
                     continue
                 print(f"You (Spoken): {user_input}")

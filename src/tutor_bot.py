@@ -34,7 +34,7 @@ RULES:
 """
 
 def create_chat(client, user_level, mentor_style):
-    chat = client.chats.create(
+    return client.chats.create(
         model="gemini-3.5-flash",
         config=types.GenerateContentConfig(
             system_instruction=get_system_instruction(user_level, mentor_style),
@@ -43,10 +43,6 @@ def create_chat(client, user_level, mentor_style):
             response_schema=TutorResponse
         )
     )
-    # Store settings for backup failover routing
-    chat._user_level = user_level
-    chat._mentor_style = mentor_style
-    return chat
 
 def handle_user_message(user_input, client, chat, collection):
     # Sliding window memory (Keep last 6 messages)
@@ -82,58 +78,37 @@ def handle_user_message(user_input, client, chat, collection):
     else:
         augmented_message = user_input
         
-    try:
-        response = chat.send_message(augmented_message)
-        return response.text
-    except Exception as e:
-        # Fallback to local Ollama (Llama 3) for presentations
+    max_retries = 3
+    delay = 2.0
+    for attempt in range(max_retries):
         try:
-            import ollama
-            print("\n[Cloud API busy — smoothly routed to Local AI Backup]")
+            response = chat.send_message(augmented_message)
+            return response.text
+        except APIError as e:
+            if attempt == max_retries - 1:
+                print(f"\n[Gemini API error after {max_retries} attempts: {e}]")
+                break
             
-            # Retrieve conversation history
-            history = getattr(chat, "_history", None) or getattr(chat, "history", [])
+            # 503 Service Unavailable, 429 Rate Limit, or temporary errors are retried
+            sleep_time = (delay * (2 ** attempt)) + random.uniform(0.1, 0.5)
+            print(f"\n[API busy (Error {e.code}). Retrying in {sleep_time:.1f}s... (Attempt {attempt + 1}/{max_retries})]")
+            time.sleep(sleep_time)
+        except Exception as e:
+            if attempt == max_retries - 1:
+                print(f"\n[Error after {max_retries} attempts: {e}]")
+                break
             
-            ollama_messages = [
-                {
-                    "role": "system", 
-                    "content": get_system_instruction(
-                        getattr(chat, "_user_level", "A2"), 
-                        getattr(chat, "_mentor_style", "Balanced")
-                    )
-                }
-            ]
-            
-            for msg in history:
-                role = "user" if msg.role == "user" else "assistant"
-                text_parts = [p.text for p in msg.parts if hasattr(p, "text") and p.text]
-                if text_parts:
-                    ollama_messages.append({"role": role, "content": "".join(text_parts)})
-            
-            # Add current message
-            ollama_messages.append({"role": "user", "content": augmented_message})
-            
-            response = ollama.chat(
-                model="llama3",
-                messages=ollama_messages,
-                format="json"
-            )
-            content = response.get('message', {}).get('content', '')
-            if not content.strip():
-                raise ValueError("Ollama returned an empty response.")
-                
-            # Verify it is valid JSON before returning
-            json.loads(content)
-            return content
-        except Exception as backup_error:
-            print(f"\n[Backup AI failed: {backup_error}]")
-            # Final fallback JSON response if all options are offline
-            fallback_response = {
-                "french_response": "Désolé, je me repose un petit moment. Reprenons notre conversation dans un instant !",
-                "mentor_feedback": "The AI mentor is taking a quick breather due to high traffic. Let's try sending that again!",
-                "internal_adaptation_level": "None (Cloud & Local Offline)",
-                "is_exit": False,
-                "new_vocabulary_introduced": [],
-                "diagnostics": "FAILOVER_ALL_OFFLINE"
-            }
-            return json.dumps(fallback_response)
+            sleep_time = (delay * (2 ** attempt)) + random.uniform(0.1, 0.5)
+            print(f"\n[Connection issue. Retrying in {sleep_time:.1f}s... (Attempt {attempt + 1}/{max_retries})]")
+            time.sleep(sleep_time)
+
+    # Friendly fallback JSON response matching Pydantic schema
+    fallback_response = {
+        "french_response": "Désolé, je me repose un petit moment. Reprenons notre conversation dans un instant !",
+        "mentor_feedback": "The AI mentor is taking a quick breather due to high traffic. Let's try sending that again!",
+        "internal_adaptation_level": "None (System rate-limited)",
+        "is_exit": False,
+        "new_vocabulary_introduced": [],
+        "diagnostics": "API_TEMPORARY_LIMIT_BREATHER"
+    }
+    return json.dumps(fallback_response)

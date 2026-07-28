@@ -29,18 +29,22 @@ def load_document_to_db(filepath, client, collection_db):
     for index, chunk in enumerate(chunks):
         chunk_id = f"{os.path.basename(filepath)}_chunk_{index}"
         
-        embed_response = client.models.embed_content(
-            model="gemini-embedding-001",
-            contents=chunk
-        )
-        vector = embed_response.embeddings[0].values
-        
-        collection_db.upsert(
-            ids=[chunk_id],
-            embeddings=[vector],
-            documents=[chunk],
-            metadatas=[{"source": filepath}]
-        )
+        try:
+            embed_response = client.models.embed_content(
+                model="gemini-embedding-001",
+                contents=chunk
+            )
+            vector = embed_response.embeddings[0].values
+            
+            collection_db.upsert(
+                ids=[chunk_id],
+                embeddings=[vector],
+                documents=[chunk],
+                metadatas=[{"source": filepath}]
+            )
+        except Exception:
+            print("[Warning: Could not connect to embedding server. Skipping cloud ingestion and using local cache.]")
+            return
     print("Database updated successfully!\n")
 
 def auto_ingest_knowledge(client, collection_db):
@@ -49,4 +53,7 @@ def auto_ingest_knowledge(client, collection_db):
         return
     for ext in ("*.txt", "*.md"):
         for filepath in glob.glob(os.path.join(docs_dir, ext)):
-            load_document_to_db(filepath, client, collection_db)
+            try:
+                load_document_to_db(filepath, client, collection_db)
+            except Exception:
+                print(f"[Warning: Failed to ingest {os.path.basename(filepath)}. Using local cache.]")
