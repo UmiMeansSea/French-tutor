@@ -32,8 +32,8 @@ def get_active_ollama_model():
                 names.append(getattr(m, 'model', getattr(m, 'name', '')))
         
         valid_names = [n for n in names if n]
-        # Prioritize 7B/8B models (llama3) over 14B models to ensure zero out-of-memory RAM errors
-        for pref in ["llama3:latest", "llama3", "qwen2.5:7b", "gemma2:9b", "mistral:latest"]:
+        # Support Qwen 7B/3B variants and Llama 3
+        for pref in ["qwen2.5:7b", "qwen2.5:3b", "qwen2.5", "qwen", "llama3:latest", "llama3"]:
             for name in valid_names:
                 if pref in name.lower():
                     return name
