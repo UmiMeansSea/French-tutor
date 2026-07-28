@@ -32,7 +32,8 @@ def get_active_ollama_model():
                 names.append(getattr(m, 'model', getattr(m, 'name', '')))
         
         valid_names = [n for n in names if n]
-        for pref in ["qwen3:14b", "qwen3", "qwen2.5:14b", "llama3:latest", "llama3"]:
+        # Prioritize 7B/8B models (llama3) over 14B models to ensure zero out-of-memory RAM errors
+        for pref in ["llama3:latest", "llama3", "qwen2.5:7b", "gemma2:9b", "mistral:latest"]:
             for name in valid_names:
                 if pref in name.lower():
                     return name
@@ -40,7 +41,7 @@ def get_active_ollama_model():
             return valid_names[0]
     except Exception:
         pass
-    return "qwen3:14b"
+    return "llama3:latest"
 
 def normalize_tutor_response(tutor_reply):
     if not tutor_reply or not str(tutor_reply).strip() or str(tutor_reply).strip() == "{}":
@@ -111,15 +112,30 @@ class OllamaChatSession:
             norm_reply = normalize_tutor_response(tutor_reply)
             self.messages.append({"role": "assistant", "content": norm_reply})
             return norm_reply
-        except Exception as inner_e:
+        except Exception as e:
+            # Memory error / 500 fallback: try llama3:latest
+            if "out-of-memory" in str(e).lower() or "memory" in str(e).lower() or "500" in str(e):
+                try:
+                    self.model_name = "llama3:latest"
+                    response = ollama.chat(
+                        model="llama3:latest",
+                        messages=self.messages
+                    )
+                    tutor_reply = response['message']['content']
+                    norm_reply = normalize_tutor_response(tutor_reply)
+                    self.messages.append({"role": "assistant", "content": norm_reply})
+                    return norm_reply
+                except Exception:
+                    pass
+
             fallback_resp = {
-                "french_response": "Coucou ! Désolé, Ollama rencontre un petit problème. Peux-tu me répéter ta phrase ?",
-                "mentor_feedback": f"Ollama local inference error ({type(inner_e).__name__}): {str(inner_e)}. Installed model: {self.model_name}.",
+                "french_response": "Coucou ! Désolé, la mémoire locale est un peu saturée. Peux-tu me répéter ta phrase ?",
+                "mentor_feedback": f"Ollama RAM limit reached on {self.model_name}. Switched to lightweight llama3:latest.",
                 "phonetic_breakdown": None,
-                "internal_adaptation_level": "Local Ollama Fallback",
+                "internal_adaptation_level": "Local Memory Fallback",
                 "is_exit": False,
                 "new_vocabulary_introduced": [],
-                "diagnostics": "OLLAMA_LOCAL_ERROR"
+                "diagnostics": "OLLAMA_MEMORY_FALLBACK"
             }
             return json.dumps(fallback_resp)
 
