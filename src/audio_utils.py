@@ -20,11 +20,24 @@ try:
 except ImportError:
     pass
 
-def speak_french(text, speed=1000):
+def speak_french(text, speed=1000, mentor_style="clara"):
     if not TTS_AVAILABLE:
         return
     if not text.strip():
         return
+    
+    style_clean = str(mentor_style).lower()
+    # Mentor Voice Speed Tuning (Leda / Charon / Gacrux presets)
+    if "derek" in style_clean or "coach" in style_clean or "strict" in style_clean:
+        # Derek (Charon preset): Deep, serious, slow & deliberate
+        speed = int(speed * 0.88)
+    elif "alice" in style_clean or "storyteller" in style_clean or "story" in style_clean:
+        # Alice (Gacrux preset): Warm, mature, expressive storytelling
+        speed = int(speed * 0.96)
+    else:
+        # Clara (Leda preset): Light, carefree, youthful & soothing
+        speed = int(speed * 1.05)
+
     temp_file = os.path.abspath("temp_response.mp3")
     try:
         # Create TTS MP3
