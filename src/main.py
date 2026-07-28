@@ -96,11 +96,16 @@ def main():
     current_speed = get_voice_speed(mentor_style)
     turtle_mode = False
     
-    print(f"\nAwesome! Your Chameleon Mentor is ready, locked in at {user_level} ({mentor_style}).")
-    print(f"Level {user_lvl} Traveler | XP: {xp} | Daily Streak: {milestone_streak} day(s) 🔥")
-    if user_badges:
-        print(f"Badges: {', '.join(user_badges)}")
-    print("Commands: /call (voice mode) | /dossier (mentor notes) | /stats | /hangout | /roleplay | /shadow | /story | /milestones | /badges | /profile | /speed\n")
+    try:
+        from rich_ui import render_top_dashboard, render_command_dashboard, render_mentor_dialogue, status_spinner
+        render_top_dashboard(user_level, mentor_style, profile or {}, rpg_stats)
+        render_command_dashboard()
+    except Exception:
+        print(f"\nAwesome! Your Chameleon Mentor is ready, locked in at {user_level} ({mentor_style}).")
+        print(f"Level {user_lvl} Traveler | XP: {xp} | Daily Streak: {milestone_streak} day(s) 🔥")
+        if user_badges:
+            print(f"Badges: {', '.join(user_badges)}")
+        print("Commands: /call (voice mode) | /dossier (mentor notes) | /stats | /hangout | /roleplay | /shadow | /story | /milestones | /badges | /profile | /speed\n")
 
     session_metrics = {
         "total_turns": 0,
@@ -138,7 +143,11 @@ def main():
                 save_profile(user_level, mentor_style, milestone_streak, weak_spots, profile.get("xp", 0), profile.get("level", 1), profile.get("badges", []), rpg_stats, user_memories)
                 chat = update_chat_persona(client, user_level, mentor_style, weak_spots, user_memories)
                 current_speed = get_voice_speed(mentor_style) if not turtle_mode else 650
-                print(f"\n[Mentor style updated dynamically to: {mentor_style}]\n")
+                try:
+                    from rich_ui import render_top_dashboard
+                    render_top_dashboard(user_level, mentor_style, profile or {}, rpg_stats)
+                except Exception:
+                    print(f"\n[Mentor style updated dynamically to: {mentor_style}]\n")
                 continue
 
             if user_input.strip().lower() == '/speed':
@@ -229,7 +238,14 @@ def main():
                 current_speed = max(650, current_speed - 200)
                 print(f"*(Speed Adapted: Dropped speaking rate to {current_speed} for clarity)*")
                 
-            reply = handle_user_message(user_input, client, chat, collection)
+            # Atmospheric Status Spinner
+            try:
+                from rich_ui import status_spinner
+                with status_spinner(f"☕ Brewing connection & response with {mentor_style}...", mentor_style):
+                    reply = handle_user_message(user_input, client, chat, collection)
+            except Exception:
+                reply = handle_user_message(user_input, client, chat, collection)
+
             try:
                 import json
                 parsed = json.loads(reply)
@@ -256,16 +272,17 @@ def main():
                 profile, _ = check_badges(profile or {}, session_metrics)
                 save_profile(user_level, mentor_style, milestone_streak, weak_spots, profile.get("xp", 0), profile.get("level", 1), profile.get("badges", []), rpg_stats)
 
-                print(f"\nTutor: {french_resp}")
-                if parsed.get('phonetic_breakdown'):
-                    print(f"Phonetics & Blending: {parsed['phonetic_breakdown']}")
-                if parsed.get('mentor_feedback'):
-                    print(f"Feedback: {parsed['mentor_feedback']}")
-                
-                # Debug / Internal Tracking Output
-                if parsed.get('internal_adaptation_level'):
-                    print(f"*(Internal Tracking: {parsed['internal_adaptation_level']})*")
-                print()
+                # Render Dialogue with Rich Panels
+                try:
+                    from rich_ui import render_mentor_dialogue
+                    render_mentor_dialogue(parsed, mentor_style)
+                except Exception:
+                    print(f"\nTutor: {french_resp}")
+                    if parsed.get('phonetic_breakdown'):
+                        print(f"Phonetics & Blending: {parsed['phonetic_breakdown']}")
+                    if parsed.get('mentor_feedback'):
+                        print(f"Feedback: {parsed['mentor_feedback']}")
+                    print()
                 
                 if voice_mode and french_resp:
                     speak_french(french_resp, speed=current_speed, mentor_style=mentor_style)

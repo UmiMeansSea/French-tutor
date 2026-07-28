@@ -32,29 +32,33 @@ def get_stat_level(stat_val):
     return (stat_val // 20) + 1
 
 def render_stat_chart(stats, active_mentor="Clara"):
-    if not stats:
-        stats = DEFAULT_STATS.copy()
+    try:
+        from rich_ui import render_rich_stat_chart
+        render_rich_stat_chart(stats, active_mentor)
+    except Exception:
+        if not stats:
+            stats = DEFAULT_STATS.copy()
+            
+        print("\n╔════════════════════════════════════════════════════════════╗")
+        print("║               📊 RPG PERSONA STAT CHART 📊                 ║")
+        print("╠════════════════════════════════════════════════════════════╣")
         
-    print("\n╔════════════════════════════════════════════════════════════╗")
-    print("║               📊 RPG PERSONA STAT CHART 📊                 ║")
-    print("╠════════════════════════════════════════════════════════════╣")
-    
-    stat_icons = {
-        "Knowledge": "🧠",
-        "Charm":     "✨",
-        "Wit":       "⚡",
-        "Courage":   "🦁",
-        "Memory":    "💾"
-    }
-    
-    for stat, val in stats.items():
-        lvl = get_stat_level(val)
-        progress_in_lvl = (val % 20) / 20.0
-        filled = int(progress_in_lvl * 10)
-        bar = "█" * filled + "░" * (10 - filled)
-        icon = stat_icons.get(stat, "⭐")
-        print(f"║ {icon} {stat:<10} [{bar}] Lvl {lvl:<2} ({val} PTS)")
+        stat_icons = {
+            "Knowledge": "🧠",
+            "Charm":     "✨",
+            "Wit":       "⚡",
+            "Courage":   "🦁",
+            "Memory":    "💾"
+        }
         
-    print("╠════════════════════════════════════════════════════════════╣")
-    print(f"║ 🎭 Active Mentor Synergy: {active_mentor:<30} ║")
-    print("╚════════════════════════════════════════════════════════════╝\n")
+        for stat, val in stats.items():
+            lvl = get_stat_level(val)
+            progress_in_lvl = (val % 20) / 20.0
+            filled = int(progress_in_lvl * 10)
+            bar = "█" * filled + "░" * (10 - filled)
+            icon = stat_icons.get(stat, "⭐")
+            print(f"║ {icon} {stat:<10} [{bar}] Lvl {lvl:<2} ({val} PTS)")
+            
+        print("╠════════════════════════════════════════════════════════════╣")
+        print(f"║ 🎭 Active Mentor Synergy: {active_mentor:<30} ║")
+        print("╚════════════════════════════════════════════════════════════╝\n")

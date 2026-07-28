@@ -74,37 +74,41 @@ SHARED CORE CURRICULUM & RULES:
     return f"{persona}\n{core_rules}"
 
 def render_mentor_dossier(mentor_style, user_profile=None):
-    style_clean = mentor_style.lower()
-    if "derek" in style_clean or "coach" in style_clean:
-        mentor = MENTOR_PROFILES["derek"]
-        improvements = [
-            "Subjunctive mood triggers (il faut que...)",
-            "Accent placement consistency (é, è, ê, ç)",
-            "Formal inversion in questions (Avez-vous...)"
-        ]
-    elif "alice" in style_clean or "story" in style_clean:
-        mentor = MENTOR_PROFILES["alice"]
-        improvements = [
-            "Classical literary idioms & adjectival agreement",
-            "Historical context of French literature",
-            "Expressive vocabulary range"
-        ]
-    else:
-        mentor = MENTOR_PROFILES["clara"]
-        improvements = [
-            "Passé composé vs. Imparfait distinction",
-            "Informal texting slang & fillers (du coup, bah)",
-            "Liaison blending in 'les amis' [lez-ami]"
-        ]
-        
-    print("\n╔════════════════════════════════════════════════════════════╗")
-    print("║               📋 MENTOR DOSSIER & FEEDBACK 📋               ║")
-    print("╠════════════════════════════════════════════════════════════╣")
-    print(f"║ 👤 Active Mentor:  {mentor['name']}")
-    print(f"║ 📖 Backstory:      {mentor['backstory'][:42]}...")
-    print(f"║ 🌟 Synergy Perks:  {mentor['perks'][:42]}...")
-    print("╠════════════════════════════════════════════════════════════╣")
-    print("║ 🎯 WHAT TO IMPROVE (GRAMMAR & VOCAB TARGETS):              ║")
-    for idx, imp in enumerate(improvements, 1):
-        print(f"║  {idx}. {imp:<53} ║")
-    print("╚════════════════════════════════════════════════════════════╝\n")
+    try:
+        from rich_ui import render_rich_dossier
+        render_rich_dossier(mentor_style, user_profile)
+    except Exception:
+        style_clean = mentor_style.lower()
+        if "derek" in style_clean or "coach" in style_clean or "strict" in style_clean:
+            mentor = MENTOR_PROFILES["derek"]
+            improvements = [
+                "Subjunctive mood triggers (il faut que...)",
+                "Accent placement consistency (é, è, ê, ç)",
+                "Formal inversion in questions (Avez-vous...)"
+            ]
+        elif "alice" in style_clean or "storyteller" in style_clean or "story" in style_clean:
+            mentor = MENTOR_PROFILES["alice"]
+            improvements = [
+                "Classical literary idioms & adjectival agreement",
+                "Historical context of French literature",
+                "Expressive vocabulary range"
+            ]
+        else:
+            mentor = MENTOR_PROFILES["clara"]
+            improvements = [
+                "Passé composé vs. Imparfait distinction",
+                "Informal texting slang & fillers (du coup, bah)",
+                "Liaison blending in 'les amis' [lez-ami]"
+            ]
+            
+        print("\n╔════════════════════════════════════════════════════════════╗")
+        print("║               📋 MENTOR DOSSIER & FEEDBACK 📋               ║")
+        print("╠════════════════════════════════════════════════════════════╣")
+        print(f"║ 👤 Active Mentor:  {mentor['name']}")
+        print(f"║ 📖 Backstory:      {mentor['backstory'][:42]}...")
+        print(f"║ 🌟 Synergy Perks:  {mentor['perks'][:42]}...")
+        print("╠════════════════════════════════════════════════════════════╣")
+        print("║ 🎯 WHAT TO IMPROVE (GRAMMAR & VOCAB TARGETS):              ║")
+        for idx, imp in enumerate(improvements, 1):
+            print(f"║  {idx}. {imp:<53} ║")
+        print("╚════════════════════════════════════════════════════════════╝\n")
