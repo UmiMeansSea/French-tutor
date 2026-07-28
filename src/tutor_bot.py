@@ -19,14 +19,14 @@ class TutorResponse(BaseModel):
 
 from mentor_manager import build_mentor_instructions
 
-def get_system_instruction(user_level, mentor_style, weak_spots=None, user_memories=None):
-    return build_mentor_instructions(user_level, mentor_style, user_memories, weak_spots)
+def get_system_instruction(user_level, mentor_style, weak_spots=None, user_memories=None, turtle_mode=False):
+    return build_mentor_instructions(user_level, mentor_style, user_memories, weak_spots, turtle_mode)
 
 MODEL_NAME = "gemini-flash-latest"  # Verified working production model
 
-def create_chat(client, user_level, mentor_style, weak_spots=None, user_memories=None):
+def create_chat(client, user_level, mentor_style, weak_spots=None, user_memories=None, turtle_mode=False):
     models_to_try = ["gemini-flash-latest", "gemini-flash-lite-latest", "gemini-pro-latest", "gemini-2.0-flash"]
-    sys_inst = get_system_instruction(user_level, mentor_style, weak_spots, user_memories)
+    sys_inst = get_system_instruction(user_level, mentor_style, weak_spots, user_memories, turtle_mode)
     
     for m in models_to_try:
         try:
@@ -53,8 +53,8 @@ def create_chat(client, user_level, mentor_style, weak_spots=None, user_memories
         )
     )
 
-def update_chat_persona(client, user_level, mentor_style, weak_spots=None, user_memories=None):
-    return create_chat(client, user_level, mentor_style, weak_spots, user_memories)
+def update_chat_persona(client, user_level, mentor_style, weak_spots=None, user_memories=None, turtle_mode=False):
+    return create_chat(client, user_level, mentor_style, weak_spots, user_memories, turtle_mode)
 
 RAG_ENABLED = True
 IS_HEALING = False

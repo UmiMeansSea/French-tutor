@@ -24,9 +24,10 @@ MENTOR_PROFILES = {
     }
 }
 
-def build_mentor_instructions(user_level, mentor_style, user_memories=None, weak_spots=None):
+def build_mentor_instructions(user_level, mentor_style, user_memories=None, weak_spots=None, turtle_mode=False):
     mem_prompt = format_memories_for_prompt(user_memories)
     spots_str = ", ".join(weak_spots) if weak_spots else "None logged yet"
+    pacing_rule = "11. PACING & SPEED: Turtle Mode 🐢 is ACTIVE. Speak slowly, clearly, and deliberately with short, simple sentences so the user can easily absorb every word." if turtle_mode else "11. PACING & SPEED: Speak at a natural, fluid, native conversational pace."
     
     style_clean = mentor_style.lower()
     if "derek" in style_clean or "coach" in style_clean or "strict" in style_clean:
@@ -66,6 +67,7 @@ SHARED CORE CURRICULUM & RULES:
 8. PHONETICS & LIAISONS: Explain French blending rules in `phonetic_breakdown`.
 9. REPETITIONS & LOOKUPS: Rephrase on "repeat that" requests and define vocabulary on demand.
 10. SPACED REPETITION WEAK SPOTS: Previously struggled with: [{spots_str}]. Organically re-test these in conversation!
+{pacing_rule}
 
 {mem_prompt}
 """

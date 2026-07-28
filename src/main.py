@@ -143,12 +143,11 @@ def main():
 
             if user_input.strip().lower() == '/speed':
                 turtle_mode = not turtle_mode
+                chat = update_chat_persona(client, user_level, mentor_style, weak_spots, user_memories, turtle_mode)
                 if turtle_mode:
-                    current_speed = 650
-                    print("\n[Speed Mode: Turtle 🐢 (Fixed slow pace at 650)]\n")
+                    print("\n[Pacing Mode: Turtle 🐢 (Deliberate, slow, clear pacing injected into system prompt)]\n")
                 else:
-                    current_speed = get_voice_speed(mentor_style)
-                    print(f"\n[Speed Mode: Normal 🐇 (Profile pace at {current_speed})]\n")
+                    print("\n[Pacing Mode: Normal 🐇 (Natural fluid speed injected into system prompt)]\n")
                 continue
 
             if user_input.strip().lower() in ['/call', '/voice']:

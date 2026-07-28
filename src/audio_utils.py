@@ -20,39 +20,24 @@ try:
 except ImportError:
     pass
 
-def speak_french(text, speed=1000, mentor_style="clara"):
+def speak_french(text, mentor_style="clara"):
     if not TTS_AVAILABLE:
         return
     if not text.strip():
         return
     
-    style_clean = str(mentor_style).lower()
-    # Mentor Voice Speed Tuning (Leda / Charon / Gacrux presets)
-    if "derek" in style_clean or "coach" in style_clean or "strict" in style_clean:
-        # Derek (Charon preset): Deep, serious, slow & deliberate
-        speed = int(speed * 0.88)
-    elif "alice" in style_clean or "storyteller" in style_clean or "story" in style_clean:
-        # Alice (Gacrux preset): Warm, mature, expressive storytelling
-        speed = int(speed * 0.96)
-    else:
-        # Clara (Leda preset): Light, carefree, youthful & soothing
-        speed = int(speed * 1.05)
-
     temp_file = os.path.abspath("temp_response.mp3")
     try:
-        # Create TTS MP3
+        # Create TTS MP3 with natural native French speech
         tts = gTTS(text=text, lang='fr')
         tts.save(temp_file)
         
-        # Play via Windows MCI (winmm.dll)
+        # Play via Windows MCI (winmm.dll) at natural 100% speed without pitch distortion
         winmm = ctypes.windll.winmm
         
         # Open command
         open_command = f'open "{temp_file}" type mpegvideo alias mymp3'
         winmm.mciSendStringW(open_command, None, 0, 0)
-        
-        # Set speed
-        winmm.mciSendStringW(f'set mymp3 speed {speed}', None, 0, 0)
         
         # Play command (blocks until finished)
         winmm.mciSendStringW('play mymp3 wait', None, 0, 0)
@@ -81,7 +66,7 @@ def listen_to_mic(silence_threshold=2.8, sample_rate=16000, max_duration=60.0):
         return ""
 
     temp_wav = os.path.abspath("temp_input.wav")
-    print("\n[Listening... Speak freely. Pausing for ~3 seconds finishes your turn]")
+    print("\n[Listening... Speak freely in French or English. Pausing for ~3 seconds finishes turn]")
     
     audio_chunks = []
     silence_start = None
@@ -123,9 +108,9 @@ def listen_to_mic(silence_threshold=2.8, sample_rate=16000, max_duration=60.0):
             wf.setframerate(sample_rate)
             wf.writeframes(recording.tobytes())
             
-        # Transcribe using SpeechRecognition with timeout protection
+        # Transcribe using SpeechRecognition with dual-pass language detection (EN + FR)
         recognizer = sr.Recognizer()
-        recognizer.operation_timeout = 8.0  # Max 8 seconds for Google Speech API response
+        recognizer.operation_timeout = 8.0  # Max 8 seconds for Speech API response
         with sr.AudioFile(temp_wav) as source:
             audio = recognizer.record(source)
             
@@ -136,20 +121,32 @@ def listen_to_mic(silence_threshold=2.8, sample_rate=16000, max_duration=60.0):
             except Exception:
                 pass
             
-        # Attempt French transcription first, fallback to English
+        # Dual-pass recognition: Test English pass (commands) & French pass (speech)
+        text_en = ""
+        text_fr = ""
         try:
-            text = recognizer.recognize_google(audio, language="fr-FR")
-            return text.strip()
-        except sr.UnknownValueError:
-            try:
-                text = recognizer.recognize_google(audio, language="en-US")
-                return text.strip()
-            except Exception:
-                print("\n[Speech not recognized. Retrying...]")
-                return ""
-        except (sr.RequestError, Exception) as req_err:
-            print(f"\n[Speech Service Timeout/Error: {req_err}]")
-            return ""
+            text_en = recognizer.recognize_google(audio, language="en-US").strip()
+        except Exception:
+            pass
+
+        try:
+            text_fr = recognizer.recognize_google(audio, language="fr-FR").strip()
+        except Exception:
+            pass
+
+        # Check if English pass captured a slash command or English prompt
+        cmd_keywords = ["speed", "call", "dossier", "stats", "profile", "roleplay", "shadow", "story", "milestones", "badges", "hangout", "quit", "exit"]
+        if text_en.startswith("/") or any(kw in text_en.lower() for kw in cmd_keywords):
+            return text_en
+        
+        # Return French speech if available, otherwise English
+        if text_fr:
+            return text_fr
+        if text_en:
+            return text_en
+
+        print("\n[Speech not recognized. Retrying...]")
+        return ""
     except Exception as e:
         print(f"\n[Microphone Error: {e}]")
         if os.path.exists(temp_wav):
