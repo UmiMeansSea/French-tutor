@@ -17,13 +17,26 @@ def init_sqlite_db():
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS user_profile (
             id INTEGER PRIMARY KEY DEFAULT 1,
+            name TEXT DEFAULT 'Learner',
+            hometown TEXT DEFAULT '',
+            profile_completed INTEGER DEFAULT 0,
             level TEXT DEFAULT 'A1',
             xp INTEGER DEFAULT 0,
             streak INTEGER DEFAULT 0,
             last_active TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
-    
+
+    # Schema migration check for existing databases
+    cursor.execute("PRAGMA table_info(user_profile)")
+    columns = [row[1] for row in cursor.fetchall()]
+    if "name" not in columns:
+        cursor.execute("ALTER TABLE user_profile ADD COLUMN name TEXT DEFAULT 'Learner'")
+    if "hometown" not in columns:
+        cursor.execute("ALTER TABLE user_profile ADD COLUMN hometown TEXT DEFAULT ''")
+    if "profile_completed" not in columns:
+        cursor.execute("ALTER TABLE user_profile ADD COLUMN profile_completed INTEGER DEFAULT 0")
+
     # Vocabulary Vault table
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS vocabulary_vault (
@@ -47,7 +60,36 @@ def init_sqlite_db():
         )
     """)
     
-    cursor.execute("INSERT OR IGNORE INTO user_profile (id, level, xp, streak) VALUES (1, 'A1', 0, 0)")
+    cursor.execute("INSERT OR IGNORE INTO user_profile (id, name, hometown, profile_completed, level, xp, streak) VALUES (1, 'Learner', '', 0, 'A1', 0, 0)")
+    conn.commit()
+    conn.close()
+
+def get_user_profile_data():
+    db_path = get_sqlite_path()
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    cursor.execute("SELECT name, hometown, profile_completed, level, xp, streak FROM user_profile WHERE id = 1")
+    row = cursor.fetchone()
+    conn.close()
+    if row:
+        return {
+            "name": row[0] or "Learner",
+            "hometown": row[1] or "",
+            "profile_completed": bool(row[2]),
+            "level": row[3] or "A1",
+            "xp": row[4] or 0,
+            "streak": row[5] or 0
+        }
+    return {"name": "Learner", "hometown": "", "profile_completed": False, "level": "A1", "xp": 0, "streak": 0}
+
+def save_user_profile_data(name, hometown, profile_completed=1):
+    db_path = get_sqlite_path()
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    cursor.execute(
+        "UPDATE user_profile SET name = ?, hometown = ?, profile_completed = ?, last_active = CURRENT_TIMESTAMP WHERE id = 1",
+        (name.strip(), hometown.strip(), 1 if profile_completed else 0)
+    )
     conn.commit()
     conn.close()
 

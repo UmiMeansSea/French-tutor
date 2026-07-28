@@ -65,8 +65,21 @@ def main():
     collection = get_chroma_collection()
     auto_ingest_knowledge(client, collection)
     
+    # Initialize SQLite Database & User Profile
+    from database import init_sqlite_db, get_user_profile_data, save_user_profile_data
+    init_sqlite_db()
+    user_db_profile = get_user_profile_data()
+
+    if not user_db_profile["profile_completed"]:
+        print("\n👋 [FIRST-TIME MENTOR WELCOME]: Bonjour ! Welcome to your French AI Tutor!")
+        u_name = input("What is your name?: ").strip() or "Learner"
+        u_town = input("Where are you from / what is your hometown?: ").strip() or "Paris"
+        save_user_profile_data(u_name, u_town, profile_completed=1)
+        user_db_profile = get_user_profile_data()
+        print(f"\n✨ Enchanté, {user_db_profile['name']} from {user_db_profile['hometown']}! Profile initialized!\n")
+    
     # Initialize Chat Bot
-    print("\nBonjour ! I am your new empathetic French AI Mentor.")
+    print("\nBonjour ! I am your empathetic French AI Mentor.")
     
     profile = load_profile()
     weak_spots = profile.get("weak_spots", []) if profile else []
@@ -74,7 +87,7 @@ def main():
     if profile:
         user_level = profile.get("cefr_level", "A2")
         mentor_style = profile.get("mentor_style", "Balanced")
-        print(f"Welcome back! Loading your saved profile... (Level: {user_level}, Style: {mentor_style})")
+        print(f"Welcome back, {user_db_profile['name']}! Loading your saved profile... (Level: {user_level}, Style: {mentor_style})")
         if weak_spots:
             print(f"Loaded Spaced Repetition Ledger: {len(weak_spots)} weak spot(s) active.")
         if user_memories.get("mastered_vocab"):
@@ -90,7 +103,15 @@ def main():
         save_profile(user_level, mentor_style, weak_spots=weak_spots, user_memories=user_memories)
         print("Profile saved successfully!")
         
-    chat = create_chat(client, user_level, mentor_style, weak_spots=weak_spots, user_memories=user_memories)
+    chat = create_chat(
+        client, 
+        user_level, 
+        mentor_style, 
+        weak_spots=weak_spots, 
+        user_memories=user_memories,
+        user_name=user_db_profile["name"],
+        user_hometown=user_db_profile["hometown"]
+    )
     
     # Prompt for Voice Mode
     voice_mode = False
@@ -153,7 +174,7 @@ def main():
             if user_input.strip().lower() == '/profile':
                 mentor_style = select_style_menu()
                 save_profile(user_level, mentor_style, milestone_streak, weak_spots, profile.get("xp", 0), profile.get("level", 1), profile.get("badges", []), rpg_stats, user_memories)
-                chat = update_chat_persona(client, user_level, mentor_style, weak_spots, user_memories)
+                chat = update_chat_persona(client, user_level, mentor_style, weak_spots, user_memories, turtle_mode, user_name=user_db_profile["name"], user_hometown=user_db_profile["hometown"])
                 current_speed = get_voice_speed(mentor_style) if not turtle_mode else 650
                 try:
                     from rich_ui import render_top_dashboard
@@ -164,7 +185,7 @@ def main():
 
             if user_input.strip().lower() == '/speed':
                 turtle_mode = not turtle_mode
-                chat = update_chat_persona(client, user_level, mentor_style, weak_spots, user_memories, turtle_mode)
+                chat = update_chat_persona(client, user_level, mentor_style, weak_spots, user_memories, turtle_mode, user_name=user_db_profile["name"], user_hometown=user_db_profile["hometown"])
                 if turtle_mode:
                     print("\n[Pacing Mode: Turtle 🐢 (Deliberate, slow, clear pacing injected into system prompt)]\n")
                 else:

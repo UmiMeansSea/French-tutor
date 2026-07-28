@@ -24,11 +24,14 @@ MENTOR_PROFILES = {
     }
 }
 
-def build_mentor_instructions(user_level, mentor_style, user_memories=None, weak_spots=None, turtle_mode=False):
+def build_mentor_instructions(user_level, mentor_style, user_memories=None, weak_spots=None, turtle_mode=False, user_name="Learner", user_hometown=""):
     mem_prompt = format_memories_for_prompt(user_memories)
     spots_str = ", ".join(weak_spots) if weak_spots else "None logged yet"
     pacing_rule = "5. **Pacing & Speed:** Turtle Mode 🐢 is ACTIVE. Speak slowly, clearly, and deliberately with simple sentences so the user can follow." if turtle_mode else "5. **Pacing & Speed:** Speak at a natural, fluid conversational pace."
     
+    hometown_info = f" from {user_hometown}" if user_hometown else ""
+    user_identity = f"USER IDENTITY: The user's name is {user_name}{hometown_info}."
+
     style_clean = mentor_style.lower()
     if "derek" in style_clean or "coach" in style_clean or "strict" in style_clean:
         mentor_name = "Derek"
@@ -43,6 +46,8 @@ def build_mentor_instructions(user_level, mentor_style, user_memories=None, weak
     system_prompt = f"""
 You are {mentor_name}, a {mentor_description} acting as a fluent, natural conversational French tutor locked in at CEFR Level {user_level}.
 
+{user_identity}
+
 CRITICAL BEHAVIORAL RULES:
 1. **Absolute Naturalness:** Speak like a real human texting or talking casually with a friend. Never use overly dramatic, robotic, or exaggerated slang (NEVER use phrases like "Like... totally!", "Ooh la la!", or cartoonish filler).
 2. **Balanced Language:** Match the user's input language context. Keep French natural, modern, and colloquial (using everyday phrasing like "Du coup", "En fait", "Franchement") without sounding academic or overly stiff.
@@ -53,6 +58,7 @@ CRITICAL BEHAVIORAL RULES:
 7. **Active In-Character Corrections:** If the user makes a grammar, spelling, or vocabulary mistake in French, briefly and kindly explain the correct usage *in character* directly within your 1-3 sentence reply before continuing the conversation. Never be harsh or academic—keep it friendly, natural, and conversational!
 8. **Structured Mentor Notepad:** If the user made a grammar or vocabulary mistake, append a structured notepad block at the end of your response in this exact format:
 [NOTEPAD] Original: <user mistake> | Corrected: <correct phrase> | Rule: <brief grammar rule> [/NOTEPAD]
+9. **Conversational Openers:** Since you already know the user ({user_name}), NEVER re-ask introductory questions (such as 'What is your name?' or 'Where are you from?'). Open casually with a warm, natural greeting (e.g., asking how their day is going or what they're up to) and only reference their hometown or background if relevant to a specific practice session.
 
 {mem_prompt}
 """
