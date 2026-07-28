@@ -32,8 +32,8 @@ def get_active_ollama_model():
                 names.append(getattr(m, 'model', getattr(m, 'name', '')))
         
         valid_names = [n for n in names if n]
-        # Support Qwen 7B/3B variants and Llama 3
-        for pref in ["qwen2.5:7b", "qwen2.5:3b", "qwen2.5", "qwen", "llama3:latest", "llama3"]:
+        # Support Qwen 3 14B, Qwen 2.5, and Llama 3
+        for pref in ["qwen3:14b", "qwen3", "qwen2.5:7b", "qwen2.5:3b", "qwen2.5", "qwen", "llama3:latest", "llama3"]:
             for name in valid_names:
                 if pref in name.lower():
                     return name
@@ -41,7 +41,7 @@ def get_active_ollama_model():
             return valid_names[0]
     except Exception:
         pass
-    return "llama3:latest"
+    return "qwen3:14b"
 
 def normalize_tutor_response(tutor_reply):
     if not tutor_reply or not str(tutor_reply).strip() or str(tutor_reply).strip() == "{}":
