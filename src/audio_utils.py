@@ -60,23 +60,33 @@ def speak_french(text, speed=1000, mentor_style="clara"):
 
 import numpy as np
 
-def listen_to_mic(silence_threshold=2.8, sample_rate=16000, max_duration=60.0):
+def listen_to_mic(silence_threshold=2.0, sample_rate=16000, max_duration=30.0):
     if not VOICE_AVAILABLE:
         print("\n[Microphone Error: Voice input packages (sounddevice/SpeechRecognition) are missing.]")
         return ""
 
     temp_wav = os.path.abspath("temp_input.wav")
-    print("\n[Listening... Speak freely in French or English. Pausing for ~3 seconds finishes turn]")
+    print("\n[Listening... 🎤 Speak clearly into your mic in French or English. Pause ~2s when finished]")
     
     audio_chunks = []
     silence_start = None
     start_time = time.time()
-    SILENCE_RMS_THRESHOLD = 300  # Silence detection energy threshold
+    
+    # Adaptive noise floor tracking
+    recent_rms_levels = []
+    SILENCE_RMS_THRESHOLD = 150  # Sensitive default threshold
 
     def callback(indata, frames, time_info, status):
-        nonlocal silence_start
+        nonlocal silence_start, SILENCE_RMS_THRESHOLD
         audio_chunks.append(indata.copy())
         rms = np.sqrt(np.mean(indata.astype(np.float32)**2))
+        
+        # Track initial ambient noise to adapt threshold dynamically
+        if len(recent_rms_levels) < 15:
+            recent_rms_levels.append(rms)
+            if len(recent_rms_levels) == 15:
+                ambient_avg = np.mean(recent_rms_levels)
+                SILENCE_RMS_THRESHOLD = max(100.0, ambient_avg * 1.6)
         
         if rms < SILENCE_RMS_THRESHOLD:
             if silence_start is None:
@@ -89,11 +99,11 @@ def listen_to_mic(silence_threshold=2.8, sample_rate=16000, max_duration=60.0):
             while True:
                 time.sleep(0.1)
                 elapsed = time.time() - start_time
-                if silence_start and (time.time() - silence_start >= silence_threshold) and len(audio_chunks) > 10:
-                    print("[Silence detected. Processing Speech...]")
+                if silence_start and (time.time() - silence_start >= silence_threshold) and len(audio_chunks) > 5:
+                    print("[Silence detected. Processing Speech... ⚡]")
                     break
                 if elapsed >= max_duration:
-                    print("[Max duration reached. Processing Speech...]")
+                    print("[Max duration reached. Processing Speech... ⚡]")
                     break
 
         if not audio_chunks:
@@ -101,51 +111,56 @@ def listen_to_mic(silence_threshold=2.8, sample_rate=16000, max_duration=60.0):
 
         recording = np.concatenate(audio_chunks, axis=0)
 
-        # Save to WAV file using built-in wave module
+        # Gain Normalization: Boost low volume signals so faint mic input is clear
+        max_val = np.max(np.abs(recording))
+        if max_val > 50 and max_val < 18000:
+            boost_factor = 22000.0 / float(max_val)
+            recording = (recording.astype(np.float32) * boost_factor).clip(-32768, 32767).astype(np.int16)
+
+        # Save to WAV file
         with wave.open(temp_wav, 'wb') as wf:
             wf.setnchannels(1)
-            wf.setsampwidth(2)  # 16-bit is 2 bytes
+            wf.setsampwidth(2)
             wf.setframerate(sample_rate)
             wf.writeframes(recording.tobytes())
             
-        # Transcribe using SpeechRecognition with dual-pass language detection (EN + FR)
+        # Transcribe using SpeechRecognition
         recognizer = sr.Recognizer()
-        recognizer.operation_timeout = 8.0  # Max 8 seconds for Speech API response
+        recognizer.operation_timeout = 10.0
         with sr.AudioFile(temp_wav) as source:
             audio = recognizer.record(source)
             
-        # Cleanup temp WAV file immediately
         if os.path.exists(temp_wav):
             try:
                 os.remove(temp_wav)
             except Exception:
                 pass
             
-        # Dual-pass recognition: Test English pass (commands) & French pass (speech)
         text_en = ""
         text_fr = ""
-        try:
-            text_en = recognizer.recognize_google(audio, language="en-US").strip()
-        except Exception:
-            pass
-
+        
+        # Pass 1: French language recognition
         try:
             text_fr = recognizer.recognize_google(audio, language="fr-FR").strip()
         except Exception:
             pass
 
-        # Check if English pass captured a slash command or English prompt
+        # Pass 2: English language recognition
+        try:
+            text_en = recognizer.recognize_google(audio, language="en-US").strip()
+        except Exception:
+            pass
+
         cmd_keywords = ["speed", "call", "dossier", "stats", "profile", "roleplay", "shadow", "story", "milestones", "badges", "hangout", "quit", "exit"]
         if text_en.startswith("/") or any(kw in text_en.lower() for kw in cmd_keywords):
             return text_en
         
-        # Return French speech if available, otherwise English
         if text_fr:
             return text_fr
         if text_en:
             return text_en
 
-        print("\n[Speech not recognized. Retrying...]")
+        print("\n[Notice: Audio captured, but speech could not be recognized. Please speak slightly louder or closer to the mic.]")
         return ""
     except Exception as e:
         print(f"\n[Microphone Error: {e}]")
