@@ -12,19 +12,20 @@ from user_profile import load_profile, save_profile
 from audio_utils import speak_french, listen_to_mic, VOICE_AVAILABLE, TTS_AVAILABLE
 from roleplay import select_roleplay_menu
 from gamification import add_xp, check_badges
+from stats import render_stat_chart, award_stat_xp, DEFAULT_STATS
 
 def select_style_menu():
-    print("\n--- Select Your Mentor Profile ---")
-    print("1. Casual Friend (Warm, funny, informal texting slang)")
-    print("2. Strict Coach (Direct male academic, rigorous corrections + encouraging praise)")
-    print("3. Storyteller (Captivating narratives, cultural facts & classics)")
-    choice = input("Select profile (1-3) [Default: 1]: ").strip()
+    print("\n--- Choose Your Chameleon Mentor Persona ---")
+    print("1. Clara (The Vibrant Expat Friend) 🌸 — Upbeat, quirky, active listener, boosts Charm & Knowledge")
+    print("2. Derek (The Strict Purist Teacher) 🎩 — Formal, meticulous, grammar academic, boosts Wit & Knowledge")
+    print("3. Alice (The Eclectic Bibliophile) 📚 — Captivating, literary, history lover, boosts Courage & Knowledge")
+    choice = input("Select mentor (1-3) [Default: 1]: ").strip()
     if choice == '2':
-        return "Strict Coach"
+        return "Derek (Strict Coach)"
     elif choice == '3':
-        return "Storyteller"
+        return "Alice (Storyteller)"
     else:
-        return "Casual Friend"
+        return "Clara (Casual Friend)"
 
 def get_voice_speed(style):
     style_clean = style.lower()
@@ -84,6 +85,7 @@ def main():
     xp = profile.get("xp", 0) if profile else 0
     user_lvl = profile.get("level", 1) if profile else 1
     user_badges = profile.get("badges", []) if profile else []
+    rpg_stats = profile.get("rpg_stats", DEFAULT_STATS.copy()) if profile else DEFAULT_STATS.copy()
     current_speed = get_voice_speed(mentor_style)
     turtle_mode = False
     
@@ -91,7 +93,7 @@ def main():
     print(f"Level {user_lvl} Traveler | XP: {xp} | Daily Streak: {milestone_streak} day(s) 🔥")
     if user_badges:
         print(f"Badges: {', '.join(user_badges)}")
-    print("Commands: /profile | /roleplay | /speed | /voice | /shadow | /story | /milestones | /badges\n")
+    print("Commands: /profile | /roleplay | /stats | /hangout | /speed | /voice | /shadow | /story | /milestones | /badges\n")
 
     session_metrics = {
         "total_turns": 0,
@@ -141,12 +143,33 @@ def main():
                     print(f"\n[Speed Mode: Normal 🐇 (Profile pace at {current_speed})]\n")
                 continue
 
+            if user_input.strip().lower() == '/stats':
+                render_stat_chart(rpg_stats, mentor_style)
+                continue
+
+            if user_input.strip().lower() == '/hangout':
+                m_clean = mentor_style.lower()
+                if "derek" in m_clean or "coach" in m_clean:
+                    print("\n[Launching Derek's Hangout Session: Quiet University Courtyard & Café Terrace ☕]")
+                    user_input = "Let's sit in the university courtyard and go over advanced grammar nuances with tea."
+                elif "alice" in m_clean or "story" in m_clean:
+                    print("\n[Launching Alice's Hangout Session: Antiquarian Bookstore & Seine River Bridge 🏛️]")
+                    user_input = "Let's walk near the ancient bookstore by the Seine river and talk about classic literature."
+                else:
+                    print("\n[Launching Clara's Hangout Session: Indie Record Store & Park Bench 🎧]")
+                    user_input = "Let's hang out on a park bench, listen to some French indie music, and chat casually."
+                session_metrics["roleplay_completed"] = True
+                profile = add_xp(profile or {}, 50, f"Hangout Session with {mentor_style}")
+                rpg_stats, _ = award_stat_xp(rpg_stats, "Charm", 15, mentor_style)
+                save_profile(user_level, mentor_style, milestone_streak, weak_spots, profile.get("xp", 0), profile.get("level", 1), profile.get("badges", []), rpg_stats)
+
             if user_input.strip().lower() == '/roleplay':
                 scenario = select_roleplay_menu()
                 user_input = scenario["prompt"]
                 session_metrics["roleplay_completed"] = True
                 profile = add_xp(profile or {}, 50, f"Roleplay: {scenario['title']}")
-                save_profile(user_level, mentor_style, milestone_streak, weak_spots, profile.get("xp", 0), profile.get("level", 1), profile.get("badges", []))
+                rpg_stats, _ = award_stat_xp(rpg_stats, "Courage", 15, mentor_style)
+                save_profile(user_level, mentor_style, milestone_streak, weak_spots, profile.get("xp", 0), profile.get("level", 1), profile.get("badges", []), rpg_stats)
 
             if user_input.strip().lower() == '/badges':
                 print(f"\n--- Player Achievement Showcase ---")
@@ -164,13 +187,15 @@ def main():
                 user_input = "Please give me 1 native French sentence with proper liaisons for me to shadow and repeat back."
                 session_metrics["shadow_completed"] = True
                 profile = add_xp(profile or {}, 50, "Shadowing Drill")
-                save_profile(user_level, mentor_style, milestone_streak, weak_spots, profile.get("xp", 0), profile.get("level", 1), profile.get("badges", []))
+                rpg_stats, _ = award_stat_xp(rpg_stats, "Wit", 15, mentor_style)
+                save_profile(user_level, mentor_style, milestone_streak, weak_spots, profile.get("xp", 0), profile.get("level", 1), profile.get("badges", []), rpg_stats)
                 print("\n[Starting Interactive Shadowing Drill...]\n")
 
             if user_input.strip().lower() == '/story':
                 user_input = f"Please read me a short 3-sentence story in French appropriate for my level ({user_level}), and ask me 2 simple questions."
                 profile = add_xp(profile or {}, 40, "Daily Story Reading")
-                save_profile(user_level, mentor_style, milestone_streak, weak_spots, profile.get("xp", 0), profile.get("level", 1), profile.get("badges", []))
+                rpg_stats, _ = award_stat_xp(rpg_stats, "Knowledge", 15, mentor_style)
+                save_profile(user_level, mentor_style, milestone_streak, weak_spots, profile.get("xp", 0), profile.get("level", 1), profile.get("badges", []), rpg_stats)
                 print("\n[Starting Daily Reading Session...]\n")
 
             if user_input.strip().lower() == '/milestones':
@@ -180,7 +205,9 @@ def main():
                 print("3. [x] Shadowing & Conversation Challenge")
                 milestone_streak += 1
                 profile = add_xp(profile or {}, 100, "Daily Milestone Completed")
-                save_profile(user_level, mentor_style, milestone_streak, weak_spots, profile.get("xp", 0), profile.get("level", 1), profile.get("badges", []))
+                rpg_stats, _ = award_stat_xp(rpg_stats, "Knowledge", 10, mentor_style)
+                rpg_stats, _ = award_stat_xp(rpg_stats, "Wit", 10, mentor_style)
+                save_profile(user_level, mentor_style, milestone_streak, weak_spots, profile.get("xp", 0), profile.get("level", 1), profile.get("badges", []), rpg_stats)
                 print(f"Awesome job! Milestone completed! Streak updated to {milestone_streak} days!\n")
                 continue
 
@@ -192,8 +219,9 @@ def main():
                 
             session_metrics["total_turns"] += 1
             profile = add_xp(profile or {}, 15, "Conversation Turn")
+            rpg_stats, _ = award_stat_xp(rpg_stats, "Charm", 5, mentor_style)
             profile, _ = check_badges(profile or {}, session_metrics)
-            save_profile(user_level, mentor_style, milestone_streak, weak_spots, profile.get("xp", 0), profile.get("level", 1), profile.get("badges", []))
+            save_profile(user_level, mentor_style, milestone_streak, weak_spots, profile.get("xp", 0), profile.get("level", 1), profile.get("badges", []), rpg_stats)
             
             reply = handle_user_message(user_input, client, chat, collection)
             try:
@@ -218,7 +246,8 @@ def main():
                 if parsed.get('diagnostics'):
                     session_metrics["diagnostics_flagged"].append(parsed['diagnostics'])
                     weak_spots.append(parsed['diagnostics'])
-                    save_profile(user_level, mentor_style, milestone_streak, weak_spots)
+                    rpg_stats, _ = award_stat_xp(rpg_stats, "Memory", 10, mentor_style)
+                    save_profile(user_level, mentor_style, milestone_streak, weak_spots, profile.get("xp", 0), profile.get("level", 1), profile.get("badges", []), rpg_stats)
                 
                 if parsed.get('is_exit'):
                     db_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "db")
@@ -230,6 +259,7 @@ def main():
                     print("\n╔════════════════════════════════════════════════════════════╗")
                     print("║               🎓 POST-SESSION SUMMARY CARD 🎓               ║")
                     print("╠════════════════════════════════════════════════════════════╣")
+                    print(f"║ 🎭 Mentor Synergy:       {mentor_style}")
                     print(f"║ 👤 Player Level:          Level {profile.get('level', 1)} ({profile.get('xp', 0)} XP)")
                     print(f"║ 🔥 Current Streak:        {milestone_streak} Day(s)")
                     print(f"║ 💬 Conversational Turns:  {session_metrics['total_turns']}")
