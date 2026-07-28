@@ -181,6 +181,13 @@ def main():
                 render_mentor_dossier(mentor_style, profile)
                 continue
 
+            if user_input.strip().lower() == '/vault':
+                from database import get_vault_words
+                from rich_ui import render_vault_dashboard
+                vault_rows = get_vault_words()
+                render_vault_dashboard(vault_rows)
+                continue
+
             if user_input.strip().lower() == '/stats':
                 render_stat_chart(rpg_stats, mentor_style)
                 continue
@@ -283,6 +290,16 @@ def main():
 
                 profile, _ = check_badges(profile or {}, session_metrics)
                 save_profile(user_level, mentor_style, milestone_streak, weak_spots, profile.get("xp", 0), profile.get("level", 1), profile.get("badges", []), rpg_stats)
+                
+                # Sync SQLite persistent storage
+                try:
+                    from database import sync_sqlite_profile, save_vault_word
+                    sync_sqlite_profile(user_level, profile.get("xp", 0), milestone_streak)
+                    if parsed.get('new_vocabulary_introduced'):
+                        for vocab in parsed['new_vocabulary_introduced']:
+                            save_vault_word(vocab, translation=french_resp[:40], cefr_level=user_level)
+                except Exception:
+                    pass
 
                 # Render Dialogue with Rich Panels
                 try:
@@ -300,6 +317,12 @@ def main():
                     speak_french(french_resp, mentor_style=mentor_style)
                 if parsed.get('new_vocabulary_introduced'):
                     session_metrics["vocabulary_learned"].extend(parsed['new_vocabulary_introduced'])
+                    try:
+                        from database import save_vault_word
+                        for vocab in parsed['new_vocabulary_introduced']:
+                            save_vault_word(vocab, translation=french_resp[:40], cefr_level=user_level)
+                    except Exception:
+                        pass
                 if diag:
                     session_metrics["diagnostics_flagged"].append(diag)
                     weak_spots.append(diag)

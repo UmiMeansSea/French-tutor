@@ -111,6 +111,7 @@ def render_command_dashboard():
     table.add_column("Category", style="dim cyan", width=16)
 
     table.add_row("/call", "Toggle Hands-Free Continuous VAD Voice Call Mode", "🎙️ Audio / Voice")
+    table.add_row("/vault", "Review Saved Vocabulary Words & Translations in SQLite", "📚 Vocabulary Vault")
     table.add_row("/dossier", "View Active Mentor Notes, Perks & Improvement Targets", "📋 Mentor Dossier")
     table.add_row("/stats", "Display RPG Persona Stat Chart & Synergy Multipliers", "📊 RPG Progression")
     table.add_row("/hangout", "Launch Mentor-Specific Relaxed Hangout Session", "☕ Study Hangout")
@@ -123,6 +124,30 @@ def render_command_dashboard():
     table.add_row("/speed", "Toggle Turtle Mode 🐢 / Normal Pace 🐇", "🐢 Pacing Control")
 
     console.print(Panel(table, border_style="dim blue", box=box.ROUNDED, padding=(0, 0)))
+
+def render_vault_dashboard(vault_rows):
+    table = Table(
+        title="📚 VOCABULARY VAULT (SQLITE STORED TERMS) 📚",
+        box=box.ROUNDED,
+        header_style="bold gold1",
+        border_style="purple3",
+        expand=True
+    )
+    table.add_column("Word / Phrase", style="bold white", width=22)
+    table.add_column("Translation & Context", style="cyan")
+    table.add_column("CEFR Level", style="bold yellow", justify="center", width=12)
+    table.add_column("Date Added", style="dim white", justify="right", width=18)
+
+    if not vault_rows:
+        table.add_row("No words saved yet", "Chat with your mentor to automatically build your vault!", "A1", "-")
+    else:
+        for row in vault_rows:
+            word, trans, lvl, dt = row
+            dt_str = str(dt)[:10] if dt else "-"
+            table.add_row(word, trans, lvl, dt_str)
+
+    panel = Panel(table, border_style="purple3", box=box.ROUNDED, padding=(0, 1))
+    console.print(panel)
 
 def render_mentor_dialogue(parsed, mentor_style):
     theme = get_mentor_theme(mentor_style)

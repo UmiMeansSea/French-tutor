@@ -20,29 +20,37 @@ try:
 except ImportError:
     pass
 
+try:
+    import edge_tts
+    import asyncio
+    EDGE_TTS_AVAILABLE = True
+except ImportError:
+    EDGE_TTS_AVAILABLE = False
+
+async def _synthesize_edge_tts(text, voice, output_file):
+    communicate = edge_tts.Communicate(text, voice)
+    await communicate.save(output_file)
+
 def speak_french(text, speed=1000, mentor_style="clara"):
-    if not TTS_AVAILABLE:
-        return
-    if not text.strip():
+    if not text or not str(text).strip():
         return
     
     temp_file = os.path.abspath("temp_response.mp3")
+    s_clean = str(mentor_style).lower()
+    voice = "fr-FR-HenriNeural" if "derek" in s_clean or "coach" in s_clean else "fr-FR-DeniseNeural"
+
     try:
-        # Create TTS MP3 with natural native French speech
-        tts = gTTS(text=text, lang='fr')
-        tts.save(temp_file)
+        if EDGE_TTS_AVAILABLE:
+            asyncio.run(_synthesize_edge_tts(text, voice, temp_file))
+        elif TTS_AVAILABLE:
+            tts = gTTS(text=text, lang='fr')
+            tts.save(temp_file)
+        else:
+            return
         
-        # Play via Windows MCI (winmm.dll) at natural 100% speed without pitch distortion
         winmm = ctypes.windll.winmm
-        
-        # Open command
-        open_command = f'open "{temp_file}" type mpegvideo alias mymp3'
-        winmm.mciSendStringW(open_command, None, 0, 0)
-        
-        # Play command (blocks until finished)
+        winmm.mciSendStringW(f'open "{temp_file}" type mpegvideo alias mymp3', None, 0, 0)
         winmm.mciSendStringW('play mymp3 wait', None, 0, 0)
-        
-        # Close command
         winmm.mciSendStringW('close mymp3', None, 0, 0)
         
         time.sleep(0.1)  # Release file handle lock
