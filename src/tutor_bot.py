@@ -56,6 +56,45 @@ def create_chat(client, user_level, mentor_style, weak_spots=None, user_memories
 def update_chat_persona(client, user_level, mentor_style, weak_spots=None, user_memories=None, turtle_mode=False):
     return create_chat(client, user_level, mentor_style, weak_spots, user_memories, turtle_mode)
 
+def retry_with_exponential_backoff(func, max_retries=5, initial_delay=1.0, max_delay=32.0):
+    """
+    Executes func() with exponential backoff and random jitter.
+    Specifically handles HTTP 429 (Resource Exhausted / Rate Limit) and transient network timeouts.
+    """
+    delay = initial_delay
+    for attempt in range(1, max_retries + 1):
+        try:
+            return func()
+        except APIError as e:
+            code = getattr(e, 'code', None) or '429'
+            msg = getattr(e, 'message', str(e))
+            print(f"\n[Gemini API Rate Limit Notice (Status Code: {code}) - {msg}]")
+            
+            if attempt == max_retries:
+                print(f"[Max retries ({max_retries}) reached. Switching to graceful breather fallback.]")
+                raise e
+            
+            jitter = random.uniform(0.2, 0.8)
+            sleep_time = min(delay + jitter, max_delay)
+            print(f"⏳ [Rate Limit Breather]: Pausing for {sleep_time:.1f}s to clear quota window... (Attempt {attempt}/{max_retries})")
+            time.sleep(sleep_time)
+            delay *= 2.0
+        except Exception as e:
+            is_timeout = "timeout" in str(e).lower() or "connect" in str(e).lower()
+            if is_timeout:
+                print("\n🌐 [NETWORK DIAGNOSTIC ADVISORY]: Connection timed out while contacting Google Gemini servers.")
+                print("👉 Tip: Please check your active VPN, firewall rules, or internet connection!")
+            
+            if attempt == max_retries:
+                print(f"[Max retries ({max_retries}) reached for {type(e).__name__}.]")
+                raise e
+
+            jitter = random.uniform(0.2, 0.8)
+            sleep_time = min(delay + jitter, max_delay)
+            print(f"⏳ [Network Retry Breather]: Retrying in {sleep_time:.1f}s... (Attempt {attempt}/{max_retries})")
+            time.sleep(sleep_time)
+            delay *= 2.0
+
 def handle_user_message(user_input, client, chat, collection=None):
     # Sliding History Windowing: Strictly truncate history to last 6 messages to stay under TPM limits
     if hasattr(chat, "_history") and len(chat._history) > 6:
@@ -95,52 +134,16 @@ def handle_user_message(user_input, client, chat, collection=None):
         except Exception:
             augmented_message = user_input
         
-    max_retries = 5
-    initial_delay = 1.5
-    for attempt in range(max_retries):
-        try:
-            response = chat.send_message(augmented_message)
-            return response.text
-        except APIError as e:
-            code = getattr(e, 'code', 'Unknown HTTP Status')
-            msg = getattr(e, 'message', str(e))
-            details = getattr(e, 'details', '')
-            print(f"\n[Gemini APIError (Status Code: {code}) - Message: {msg}]")
-            if details:
-                print(f"[API Details: {details}]")
-            
-            if attempt == max_retries - 1:
-                print(f"[Max retries ({max_retries}) exhausted for APIError Code {code}]")
-                break
-            
-            sleep_time = (initial_delay * (2 ** attempt)) + random.uniform(0.2, 0.8)
-            print(f"[Retrying in {sleep_time:.1f}s... (Attempt {attempt + 1}/{max_retries})]")
-            time.sleep(sleep_time)
-        except Exception as e:
-            code_str = getattr(e, 'code', None) or getattr(e, 'status_code', None) or 'N/A'
-            print(f"\n[API Exception ({type(e).__name__}) - HTTP Status Code: {code_str}]")
-            print(f"[Error Detail: {str(e)}]")
-            
-            if "ConnectTimeout" in type(e).__name__ or "timeout" in str(e).lower() or "ConnectError" in type(e).__name__:
-                print("\n🌐 [NETWORK DIAGNOSTIC ADVISORY]: Connection timed out while contacting Google Gemini servers.")
-                print("👉 Tip: Please check your internet connection, active VPN, firewall rules, or proxy configuration!\n")
-
-            if attempt == max_retries - 1:
-                print(f"[Max retries ({max_retries}) exhausted after network exception]")
-                break
-            
-            sleep_time = (initial_delay * (2 ** attempt)) + random.uniform(0.2, 0.8)
-            print(f"[Retrying in {sleep_time:.1f}s... (Attempt {attempt + 1}/{max_retries})]")
-            time.sleep(sleep_time)
-
-    # Clean, non-crashing user-facing fallback response
-    fallback_response = {
-        "french_response": "Désolé, la connexion est un peu lente. Peux-tu me répéter ta phrase ?",
-        "mentor_feedback": "Network connection timed out or hit API rate limits. Your session is active—feel free to type your message again!",
-        "internal_adaptation_level": "Network Timeout Fallback",
-        "is_exit": False,
-        "new_vocabulary_introduced": [],
-        "diagnostics": "NETWORK_TIMEOUT_RETRY"
-    }
-    return json.dumps(fallback_response)
+    try:
+        return retry_with_exponential_backoff(lambda: chat.send_message(augmented_message).text)
+    except Exception:
+        fallback_response = {
+            "french_response": "Désolé, la connexion est un peu lente. Peux-tu me répéter ta phrase ?",
+            "mentor_feedback": "Rate limit (429) or network timeout encountered. Your session is active—feel free to re-enter your message!",
+            "internal_adaptation_level": "Rate Limit Breather Fallback",
+            "is_exit": False,
+            "new_vocabulary_introduced": [],
+            "diagnostics": "NETWORK_TIMEOUT_RETRY"
+        }
+        return json.dumps(fallback_response)
 
