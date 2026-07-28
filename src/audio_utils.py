@@ -60,23 +60,50 @@ def speak_french(text, speed=1000):
         except Exception:
             pass
 
-def listen_to_mic():
+import numpy as np
+
+def listen_to_mic(silence_threshold=2.8, sample_rate=16000, max_duration=60.0):
     if not VOICE_AVAILABLE:
         print("\n[Microphone Error: Voice input packages (sounddevice/SpeechRecognition) are missing.]")
         return ""
 
     temp_wav = os.path.abspath("temp_input.wav")
-    duration = 5.0  # record for 5 seconds
-    sample_rate = 16000
+    print("\n[Listening... Speak freely. Pausing for ~3 seconds finishes your turn]")
     
-    try:
-        print("\n[Listening... Speak in French or English (5 seconds)]")
-        # Record audio using sounddevice (int16 numpy array)
-        recording = sd.rec(int(duration * sample_rate), samplerate=sample_rate, channels=1, dtype='int16')
-        sd.wait()  # Block until the recording is finished
-        print("[Processing Speech...]")
+    audio_chunks = []
+    silence_start = None
+    start_time = time.time()
+    SILENCE_RMS_THRESHOLD = 300  # Silence detection energy threshold
+
+    def callback(indata, frames, time_info, status):
+        nonlocal silence_start
+        audio_chunks.append(indata.copy())
+        rms = np.sqrt(np.mean(indata.astype(np.float32)**2))
         
-        # Save to WAV file using built-in wave module (no wavio or scipy required)
+        if rms < SILENCE_RMS_THRESHOLD:
+            if silence_start is None:
+                silence_start = time.time()
+        else:
+            silence_start = None
+
+    try:
+        with sd.InputStream(samplerate=sample_rate, channels=1, dtype='int16', callback=callback, blocksize=int(sample_rate * 0.2)):
+            while True:
+                time.sleep(0.1)
+                elapsed = time.time() - start_time
+                if silence_start and (time.time() - silence_start >= silence_threshold) and len(audio_chunks) > 10:
+                    print("[Silence detected. Processing Speech...]")
+                    break
+                if elapsed >= max_duration:
+                    print("[Max duration reached. Processing Speech...]")
+                    break
+
+        if not audio_chunks:
+            return ""
+
+        recording = np.concatenate(audio_chunks, axis=0)
+
+        # Save to WAV file using built-in wave module
         with wave.open(temp_wav, 'wb') as wf:
             wf.setnchannels(1)
             wf.setsampwidth(2)  # 16-bit is 2 bytes

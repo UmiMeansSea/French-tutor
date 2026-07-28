@@ -10,6 +10,8 @@ from database import get_chroma_collection, auto_ingest_knowledge
 from tutor_bot import create_chat, handle_user_message, update_chat_persona
 from user_profile import load_profile, save_profile
 from audio_utils import speak_french, listen_to_mic, VOICE_AVAILABLE, TTS_AVAILABLE
+from roleplay import select_roleplay_menu
+from gamification import add_xp, check_badges
 
 def select_style_menu():
     print("\n--- Select Your Mentor Profile ---")
@@ -79,13 +81,17 @@ def main():
         print("\n[Voice Input (STT) is unavailable because speech_recognition or pyaudio is missing. Defaulting to typing mode.]")
     
     milestone_streak = profile.get("milestone_streak", 0) if profile else 0
+    xp = profile.get("xp", 0) if profile else 0
+    user_lvl = profile.get("level", 1) if profile else 1
+    user_badges = profile.get("badges", []) if profile else []
     current_speed = get_voice_speed(mentor_style)
     turtle_mode = False
     
     print(f"\nAwesome! Your Chameleon Mentor is ready, locked in at {user_level} ({mentor_style}).")
-    print(f"Daily Milestone Streak: {milestone_streak} day(s) 🔥")
-    print("Try asking it: 'Should I use tu or vous with my boss?' or just say 'Bonjour!'")
-    print("Commands: /profile (persona) | /speed (turtle/normal) | /voice (audio) | /shadow (echo) | /story (passage) | /milestones (streak)\n")
+    print(f"Level {user_lvl} Traveler | XP: {xp} | Daily Streak: {milestone_streak} day(s) 🔥")
+    if user_badges:
+        print(f"Badges: {', '.join(user_badges)}")
+    print("Commands: /profile | /roleplay | /speed | /voice | /shadow | /story | /milestones | /badges\n")
 
     session_metrics = {
         "total_turns": 0,
@@ -135,12 +141,36 @@ def main():
                     print(f"\n[Speed Mode: Normal 🐇 (Profile pace at {current_speed})]\n")
                 continue
 
+            if user_input.strip().lower() == '/roleplay':
+                scenario = select_roleplay_menu()
+                user_input = scenario["prompt"]
+                session_metrics["roleplay_completed"] = True
+                profile = add_xp(profile or {}, 50, f"Roleplay: {scenario['title']}")
+                save_profile(user_level, mentor_style, milestone_streak, weak_spots, profile.get("xp", 0), profile.get("level", 1), profile.get("badges", []))
+
+            if user_input.strip().lower() == '/badges':
+                print(f"\n--- Player Achievement Showcase ---")
+                print(f"Level: {profile.get('level', 1)} | XP: {profile.get('xp', 0)}")
+                print(f"Badges Unlocked ({len(profile.get('badges', []))}):")
+                if not profile.get('badges'):
+                    print(" - None unlocked yet. Complete challenges to earn badges!")
+                else:
+                    for b in profile.get('badges', []):
+                        print(f" 🏆 {b}")
+                print()
+                continue
+
             if user_input.strip().lower() == '/shadow':
                 user_input = "Please give me 1 native French sentence with proper liaisons for me to shadow and repeat back."
+                session_metrics["shadow_completed"] = True
+                profile = add_xp(profile or {}, 50, "Shadowing Drill")
+                save_profile(user_level, mentor_style, milestone_streak, weak_spots, profile.get("xp", 0), profile.get("level", 1), profile.get("badges", []))
                 print("\n[Starting Interactive Shadowing Drill...]\n")
 
             if user_input.strip().lower() == '/story':
                 user_input = f"Please read me a short 3-sentence story in French appropriate for my level ({user_level}), and ask me 2 simple questions."
+                profile = add_xp(profile or {}, 40, "Daily Story Reading")
+                save_profile(user_level, mentor_style, milestone_streak, weak_spots, profile.get("xp", 0), profile.get("level", 1), profile.get("badges", []))
                 print("\n[Starting Daily Reading Session...]\n")
 
             if user_input.strip().lower() == '/milestones':
@@ -149,7 +179,8 @@ def main():
                 print("2. [x] Pronunciation & Blending Drill")
                 print("3. [x] Shadowing & Conversation Challenge")
                 milestone_streak += 1
-                save_profile(user_level, mentor_style, milestone_streak, weak_spots)
+                profile = add_xp(profile or {}, 100, "Daily Milestone Completed")
+                save_profile(user_level, mentor_style, milestone_streak, weak_spots, profile.get("xp", 0), profile.get("level", 1), profile.get("badges", []))
                 print(f"Awesome job! Milestone completed! Streak updated to {milestone_streak} days!\n")
                 continue
 
@@ -160,6 +191,9 @@ def main():
                 print(f"*(Speed Adapted: Dropped speaking rate to {current_speed} for clarity)*")
                 
             session_metrics["total_turns"] += 1
+            profile = add_xp(profile or {}, 15, "Conversation Turn")
+            profile, _ = check_badges(profile or {}, session_metrics)
+            save_profile(user_level, mentor_style, milestone_streak, weak_spots, profile.get("xp", 0), profile.get("level", 1), profile.get("badges", []))
             
             reply = handle_user_message(user_input, client, chat, collection)
             try:
@@ -196,6 +230,7 @@ def main():
                     print("\n╔════════════════════════════════════════════════════════════╗")
                     print("║               🎓 POST-SESSION SUMMARY CARD 🎓               ║")
                     print("╠════════════════════════════════════════════════════════════╣")
+                    print(f"║ 👤 Player Level:          Level {profile.get('level', 1)} ({profile.get('xp', 0)} XP)")
                     print(f"║ 🔥 Current Streak:        {milestone_streak} Day(s)")
                     print(f"║ 💬 Conversational Turns:  {session_metrics['total_turns']}")
                     v_str = ', '.join(session_metrics['vocabulary_learned']) if session_metrics['vocabulary_learned'] else 'None'
@@ -204,7 +239,9 @@ def main():
                     w_str = ', '.join(weak_spots) if weak_spots else 'None recorded'
                     if len(w_str) > 35: w_str = w_str[:32] + "..."
                     print(f"║ 🎯 Recorded Weak Spots:   {w_str}")
-                    print(f"║ 💾 Saved Summary Path:    db/session_summary_...json")
+                    b_str = ', '.join(profile.get("badges", [])) if profile.get("badges") else 'None yet'
+                    if len(b_str) > 35: b_str = b_str[:32] + "..."
+                    print(f"║ 🏆 Badges Unlocked:       {b_str}")
                     print("╚════════════════════════════════════════════════════════════╝\n")
                     break
             except Exception:

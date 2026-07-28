@@ -13,13 +13,18 @@ def load_profile():
         print(f"Error loading profile: {e}")
         return None
 
-def save_profile(cefr_level, mentor_style, milestone_streak=0, weak_spots=None):
+def save_profile(cefr_level, mentor_style, milestone_streak=0, weak_spots=None, xp=0, level=1, badges=None):
     if weak_spots is None:
         weak_spots = []
+    if badges is None:
+        badges = []
     existing = load_profile() or {}
     existing["cefr_level"] = cefr_level
     existing["mentor_style"] = mentor_style
     existing["milestone_streak"] = milestone_streak
+    existing["xp"] = max(existing.get("xp", 0), xp)
+    existing["level"] = max(existing.get("level", 1), level)
+    existing["badges"] = list(set(existing.get("badges", []) + badges))
     
     current_spots = existing.get("weak_spots", [])
     for spot in weak_spots:
