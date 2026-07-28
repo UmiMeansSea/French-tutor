@@ -13,6 +13,7 @@ from audio_utils import speak_french, listen_to_mic, VOICE_AVAILABLE, TTS_AVAILA
 from roleplay import select_roleplay_menu
 from gamification import add_xp, check_badges
 from stats import render_stat_chart, award_stat_xp, DEFAULT_STATS
+from memory_manager import extract_session_memories
 
 def select_style_menu():
     print("\n--- Choose Your Chameleon Mentor Persona ---")
@@ -54,12 +55,15 @@ def main():
     
     profile = load_profile()
     weak_spots = profile.get("weak_spots", []) if profile else []
+    user_memories = profile.get("user_memories", {}) if profile else {}
     if profile:
         user_level = profile.get("cefr_level", "A2")
         mentor_style = profile.get("mentor_style", "Balanced")
         print(f"Welcome back! Loading your saved profile... (Level: {user_level}, Style: {mentor_style})")
         if weak_spots:
             print(f"Loaded Spaced Repetition Ledger: {len(weak_spots)} weak spot(s) active.")
+        if user_memories.get("mastered_vocab"):
+            print(f"Loaded Cross-Session Long-Term Memory: {len(user_memories.get('mastered_vocab', []))} fact(s) recalled.")
     else:
         user_level = input("To get started, what is your current French level? (A1, A2, B1, B2, C1, or C2): ").strip().upper()
         if user_level not in ['A1', 'A2', 'B1', 'B2', 'C1', 'C2']:
@@ -68,10 +72,10 @@ def main():
             
         mentor_style = select_style_menu()
             
-        save_profile(user_level, mentor_style, weak_spots=weak_spots)
+        save_profile(user_level, mentor_style, weak_spots=weak_spots, user_memories=user_memories)
         print("Profile saved successfully!")
         
-    chat = create_chat(client, user_level, mentor_style, weak_spots=weak_spots)
+    chat = create_chat(client, user_level, mentor_style, weak_spots=weak_spots, user_memories=user_memories)
     
     # Prompt for Voice Mode
     voice_mode = False
@@ -127,8 +131,8 @@ def main():
 
             if user_input.strip().lower() == '/profile':
                 mentor_style = select_style_menu()
-                save_profile(user_level, mentor_style, milestone_streak, weak_spots)
-                update_chat_persona(chat, user_level, mentor_style, weak_spots)
+                save_profile(user_level, mentor_style, milestone_streak, weak_spots, profile.get("xp", 0), profile.get("level", 1), profile.get("badges", []), rpg_stats, user_memories)
+                update_chat_persona(chat, user_level, mentor_style, weak_spots, user_memories)
                 current_speed = get_voice_speed(mentor_style) if not turtle_mode else 650
                 print(f"\n[Mentor style updated dynamically to: {mentor_style}]\n")
                 continue
@@ -250,6 +254,10 @@ def main():
                     save_profile(user_level, mentor_style, milestone_streak, weak_spots, profile.get("xp", 0), profile.get("level", 1), profile.get("badges", []), rpg_stats)
                 
                 if parsed.get('is_exit'):
+                    profile = extract_session_memories(session_metrics, profile or {})
+                    user_memories = profile.get("user_memories", {})
+                    save_profile(user_level, mentor_style, milestone_streak, weak_spots, profile.get("xp", 0), profile.get("level", 1), profile.get("badges", []), rpg_stats, user_memories)
+                    
                     db_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "db")
                     os.makedirs(db_dir, exist_ok=True)
                     summary_path = os.path.join(db_dir, f"session_summary_{int(time.time())}.json")
@@ -269,6 +277,8 @@ def main():
                     w_str = ', '.join(weak_spots) if weak_spots else 'None recorded'
                     if len(w_str) > 35: w_str = w_str[:32] + "..."
                     print(f"║ 🎯 Recorded Weak Spots:   {w_str}")
+                    m_cnt = len(user_memories.get('mastered_vocab', []))
+                    print(f"║ 🧠 Long-Term Memories:    {m_cnt} Fact(s) Retained")
                     b_str = ', '.join(profile.get("badges", [])) if profile.get("badges") else 'None yet'
                     if len(b_str) > 35: b_str = b_str[:32] + "..."
                     print(f"║ 🏆 Badges Unlocked:       {b_str}")
