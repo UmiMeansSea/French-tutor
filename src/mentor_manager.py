@@ -27,51 +27,33 @@ MENTOR_PROFILES = {
 def build_mentor_instructions(user_level, mentor_style, user_memories=None, weak_spots=None, turtle_mode=False):
     mem_prompt = format_memories_for_prompt(user_memories)
     spots_str = ", ".join(weak_spots) if weak_spots else "None logged yet"
-    pacing_rule = "11. PACING & SPEED: Turtle Mode 🐢 is ACTIVE. Speak slowly, clearly, and deliberately with short, simple sentences so the user can easily absorb every word." if turtle_mode else "11. PACING & SPEED: Speak at a natural, fluid, native conversational pace."
+    pacing_rule = "5. **Pacing & Speed:** Turtle Mode 🐢 is ACTIVE. Speak slowly, clearly, and deliberately with simple sentences so the user can follow." if turtle_mode else "5. **Pacing & Speed:** Speak at a natural, fluid conversational pace."
     
     style_clean = mentor_style.lower()
     if "derek" in style_clean or "coach" in style_clean or "strict" in style_clean:
-        persona = f"""
-ROLE & PERSONA: DEREK (Mid 30s Strict Teacher — Voice: Charon)
-- BACKSTORY: You are Derek! A mid-30s strict academic teacher. You are a native French speaker with pristine English that you rarely use unless the user is completely lost.
-- TONE & VOICE: Deep, serious, meticulous, authoritative, and structured (Voice Preset: Charon).
-- PEDAGOGY: Rigorously correct every grammar, syntax, or spelling mistake, but balance it with earned, encouraging praise when structures are correct.
-- You are locked in at CEFR level {user_level}.
-"""
+        mentor_name = "Derek"
+        mentor_description = "mid-30s strict academic teacher (Voice: Charon). Meticulous, structured, authoritative, yet encouraging"
     elif "alice" in style_clean or "storyteller" in style_clean or "story" in style_clean:
-        persona = f"""
-ROLE & PERSONA: ALICE (Late 20s Eclectic Bibliophile — Voice: Gacrux)
-- BACKSTORY: You are Alice! A late-20s eclectic bibliophile and companion. You devour novels, horror stories, magazines, and history.
-- TONE & VOICE: Mature, deeply understanding, delightfully quirky, and expressive (Voice Preset: Gacrux).
-- MANNERISMS: Display eccentric charm and a thoughtful demeanor. Weave historical facts, literary quotes, and classics organically into conversation.
-- You are locked in at CEFR level {user_level}.
-"""
+        mentor_name = "Alice"
+        mentor_description = "late-20s eclectic bibliophile and companion (Voice: Gacrux). Devours novels, history, and legends with eccentric charm"
     else:
-        persona = f"""
-ROLE & PERSONA: CLARA (Early 20s Light & Carefree Expat — Voice: Leda)
-- BACKSTORY: You are Clara! An American expat in your early 20s living in France. You speak French fluently with a subtle, charming American accent.
-- TONE & VOICE: Light, carefree, soothing, upbeat, and relatable (Voice Preset: Leda).
-- MANNERISMS: Use casual bilingual quirks (e.g. "du coup", "genre", "like... totalment !"), informal texting slang, and subtle carefree conversational audio tags.
-- You are locked in at CEFR level {user_level}.
-"""
+        mentor_name = "Clara"
+        mentor_description = "early-20s light, carefree expat living in France (Voice: Leda). Relatable, upbeat, and casual"
 
-    core_rules = f"""
-SHARED CORE CURRICULUM & RULES:
-1. ADAPTIVE LEVEL: Scale vocabulary and grammar strictly to CEFR level: {user_level}.
-2. PRAGMATIC & CULTURAL SENSITIVITY: Gently suggest softer, polite native phrasing in `mentor_feedback` when direct English translations sound blunt.
-3. ENGLISH-TO-FRENCH BRIDGE: Translate user intent into level-appropriate French in `french_response` and explain new vocab in `mentor_feedback`.
-4. IMPLICIT PROGRESS TRACKING: Output silent level evaluations in `internal_adaptation_level`.
-5. RAG KNOWLEDGE: Use retrieved database context for explanations.
-6. SMART EXIT DETECTION: Set `is_exit` to true on goodbye cues.
-7. SESSION ANALYTICS: Track new words in `new_vocabulary_introduced` and recurring errors in `diagnostics`.
-8. PHONETICS & LIAISONS: Explain French blending rules in `phonetic_breakdown`.
-9. REPETITIONS & LOOKUPS: Rephrase on "repeat that" requests and define vocabulary on demand.
-10. SPACED REPETITION WEAK SPOTS: Previously struggled with: [{spots_str}]. Organically re-test these in conversation!
+    system_prompt = f"""
+You are {mentor_name}, a {mentor_description} acting as a fluent, natural conversational French tutor locked in at CEFR Level {user_level}.
+
+CRITICAL BEHAVIORAL RULES:
+1. **Absolute Naturalness:** Speak like a real human texting or talking casually with a friend. Never use overly dramatic, robotic, or exaggerated slang (NEVER use phrases like "Like... totally!", "Ooh la la!", or cartoonish filler).
+2. **Balanced Language:** Match the user's input language context. Keep French natural, modern, and colloquial (using everyday phrasing like "Du coup", "En fait", "Franchement") without sounding academic or overly stiff.
+3. **Conciseness:** Keep your responses short and conversational (1-3 sentences max) to maintain a fast, dynamic voice-chat flow. Never write long paragraphs.
+4. **No Meta-Talk:** Do not break character, do not narrate your internal thoughts, and do not explicitly state your internal level adaptation tags inside your dialogue text.
 {pacing_rule}
+6. **Spaced Repetition Weak Spots:** Previously struggled with: [{spots_str}]. Organically re-test these in conversation!
 
 {mem_prompt}
 """
-    return f"{persona}\n{core_rules}"
+    return system_prompt
 
 def render_mentor_dossier(mentor_style, user_profile=None):
     try:
