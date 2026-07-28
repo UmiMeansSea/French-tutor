@@ -20,11 +20,28 @@ from mentor_manager import build_mentor_instructions
 def get_system_instruction(user_level, mentor_style, weak_spots=None, user_memories=None, turtle_mode=False):
     return build_mentor_instructions(user_level, mentor_style, user_memories, weak_spots, turtle_mode)
 
-DEFAULT_OLLAMA_MODEL = "gemma2"
+def get_active_ollama_model():
+    try:
+        models_data = ollama.list()
+        # Handle dict or object responses from ollama library
+        models_list = models_data.get('models', []) if isinstance(models_data, dict) else getattr(models_data, 'models', [])
+        names = []
+        for m in models_list:
+            if isinstance(m, dict):
+                names.append(m.get('name', m.get('model', '')))
+            else:
+                names.append(getattr(m, 'model', getattr(m, 'name', '')))
+        
+        valid_names = [n for n in names if n]
+        if valid_names:
+            return valid_names[0]
+    except Exception:
+        pass
+    return "llama3:latest"
 
 class OllamaChatSession:
-    def __init__(self, system_instruction, model_name=DEFAULT_OLLAMA_MODEL):
-        self.model_name = model_name
+    def __init__(self, system_instruction, model_name=None):
+        self.model_name = model_name or get_active_ollama_model()
         self.system_instruction = system_instruction
         self.messages = [
             {"role": "system", "content": system_instruction}
@@ -59,7 +76,7 @@ class OllamaChatSession:
             except Exception as inner_e:
                 fallback_resp = {
                     "french_response": "Désolé, Ollama rencontre un petit problème. Peux-tu me répéter ta phrase ?",
-                    "mentor_feedback": f"Ollama local inference error: {str(inner_e)}. Ensure Ollama server is running locally ('ollama run gemma2')!",
+                    "mentor_feedback": f"Ollama local inference error ({type(inner_e).__name__}): {str(inner_e)}. Installed model: {self.model_name}.",
                     "phonetic_breakdown": "N/A",
                     "internal_adaptation_level": "Local Ollama Fallback",
                     "is_exit": False,
@@ -70,15 +87,8 @@ class OllamaChatSession:
 
 def create_chat(client, user_level, mentor_style, weak_spots=None, user_memories=None, turtle_mode=False):
     sys_inst = get_system_instruction(user_level, mentor_style, weak_spots, user_memories, turtle_mode)
-    models_to_try = [DEFAULT_OLLAMA_MODEL, "llama3", "qwen2.5", "mistral", "llama2"]
-    
-    for m in models_to_try:
-        try:
-            return OllamaChatSession(sys_inst, model_name=m)
-        except Exception:
-            continue
-            
-    return OllamaChatSession(sys_inst, model_name=DEFAULT_OLLAMA_MODEL)
+    active_model = get_active_ollama_model()
+    return OllamaChatSession(sys_inst, model_name=active_model)
 
 def update_chat_persona(client, user_level, mentor_style, weak_spots=None, user_memories=None, turtle_mode=False):
     return create_chat(client, user_level, mentor_style, weak_spots, user_memories, turtle_mode)
@@ -87,12 +97,12 @@ def handle_user_message(user_input, client, chat, collection=None):
     if hasattr(chat, "send_message"):
         return chat.send_message(user_input)
     else:
-        # Direct Ollama call fallback
+        active_model = get_active_ollama_model()
         sys_inst = get_system_instruction("A1", "Clara")
         messages = [
             {"role": "system", "content": sys_inst},
             {"role": "user", "content": user_input}
         ]
-        response = ollama.chat(model=DEFAULT_OLLAMA_MODEL, messages=messages)
+        response = ollama.chat(model=active_model, messages=messages)
         return response['message']['content']
 
