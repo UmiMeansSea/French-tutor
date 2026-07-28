@@ -13,11 +13,19 @@ def load_profile():
         print(f"Error loading profile: {e}")
         return None
 
-def save_profile(cefr_level, mentor_style, milestone_streak=0):
+def save_profile(cefr_level, mentor_style, milestone_streak=0, weak_spots=None):
+    if weak_spots is None:
+        weak_spots = []
     existing = load_profile() or {}
     existing["cefr_level"] = cefr_level
     existing["mentor_style"] = mentor_style
     existing["milestone_streak"] = milestone_streak
+    
+    current_spots = existing.get("weak_spots", [])
+    for spot in weak_spots:
+        if spot and spot not in current_spots:
+            current_spots.append(spot)
+    existing["weak_spots"] = current_spots
     
     os.makedirs(os.path.dirname(PROFILE_PATH), exist_ok=True)
     try:

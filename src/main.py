@@ -50,10 +50,13 @@ def main():
     print("\nBonjour ! I am your new empathetic French AI Mentor.")
     
     profile = load_profile()
+    weak_spots = profile.get("weak_spots", []) if profile else []
     if profile:
         user_level = profile.get("cefr_level", "A2")
         mentor_style = profile.get("mentor_style", "Balanced")
         print(f"Welcome back! Loading your saved profile... (Level: {user_level}, Style: {mentor_style})")
+        if weak_spots:
+            print(f"Loaded Spaced Repetition Ledger: {len(weak_spots)} weak spot(s) active.")
     else:
         user_level = input("To get started, what is your current French level? (A1, A2, B1, B2, C1, or C2): ").strip().upper()
         if user_level not in ['A1', 'A2', 'B1', 'B2', 'C1', 'C2']:
@@ -62,10 +65,10 @@ def main():
             
         mentor_style = select_style_menu()
             
-        save_profile(user_level, mentor_style)
+        save_profile(user_level, mentor_style, weak_spots=weak_spots)
         print("Profile saved successfully!")
         
-    chat = create_chat(client, user_level, mentor_style)
+    chat = create_chat(client, user_level, mentor_style, weak_spots=weak_spots)
     
     # Prompt for Voice Mode
     voice_mode = False
@@ -77,11 +80,12 @@ def main():
     
     milestone_streak = profile.get("milestone_streak", 0) if profile else 0
     current_speed = get_voice_speed(mentor_style)
+    turtle_mode = False
     
     print(f"\nAwesome! Your Chameleon Mentor is ready, locked in at {user_level} ({mentor_style}).")
     print(f"Daily Milestone Streak: {milestone_streak} day(s) 🔥")
     print("Try asking it: 'Should I use tu or vous with my boss?' or just say 'Bonjour!'")
-    print("Commands: /profile (switch persona) | /voice (toggle audio) | /shadow (echo drill) | /story (daily passage) | /milestones (daily streak)\n")
+    print("Commands: /profile (persona) | /speed (turtle/normal) | /voice (audio) | /shadow (echo) | /story (passage) | /milestones (streak)\n")
 
     session_metrics = {
         "total_turns": 0,
@@ -115,10 +119,20 @@ def main():
 
             if user_input.strip().lower() == '/profile':
                 mentor_style = select_style_menu()
-                save_profile(user_level, mentor_style, milestone_streak)
-                update_chat_persona(chat, user_level, mentor_style)
-                current_speed = get_voice_speed(mentor_style)
+                save_profile(user_level, mentor_style, milestone_streak, weak_spots)
+                update_chat_persona(chat, user_level, mentor_style, weak_spots)
+                current_speed = get_voice_speed(mentor_style) if not turtle_mode else 650
                 print(f"\n[Mentor style updated dynamically to: {mentor_style}]\n")
+                continue
+
+            if user_input.strip().lower() == '/speed':
+                turtle_mode = not turtle_mode
+                if turtle_mode:
+                    current_speed = 650
+                    print("\n[Speed Mode: Turtle 🐢 (Fixed slow pace at 650)]\n")
+                else:
+                    current_speed = get_voice_speed(mentor_style)
+                    print(f"\n[Speed Mode: Normal 🐇 (Profile pace at {current_speed})]\n")
                 continue
 
             if user_input.strip().lower() == '/shadow':
@@ -135,7 +149,7 @@ def main():
                 print("2. [x] Pronunciation & Blending Drill")
                 print("3. [x] Shadowing & Conversation Challenge")
                 milestone_streak += 1
-                save_profile(user_level, mentor_style, milestone_streak)
+                save_profile(user_level, mentor_style, milestone_streak, weak_spots)
                 print(f"Awesome job! Milestone completed! Streak updated to {milestone_streak} days!\n")
                 continue
 
@@ -169,6 +183,8 @@ def main():
                     session_metrics["vocabulary_learned"].extend(parsed['new_vocabulary_introduced'])
                 if parsed.get('diagnostics'):
                     session_metrics["diagnostics_flagged"].append(parsed['diagnostics'])
+                    weak_spots.append(parsed['diagnostics'])
+                    save_profile(user_level, mentor_style, milestone_streak, weak_spots)
                 
                 if parsed.get('is_exit'):
                     db_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "db")
@@ -177,17 +193,19 @@ def main():
                     with open(summary_path, 'w', encoding='utf-8') as f:
                         json.dump(session_metrics, f, indent=4)
                     
-                    print("\n--- Session Report ---")
-                    print(f"Turns: {session_metrics['total_turns']}")
-                    vocab = ', '.join(session_metrics['vocabulary_learned']) if session_metrics['vocabulary_learned'] else 'None'
-                    print(f"New Vocab: {vocab}")
-                    print("Diagnostics:")
-                    if not session_metrics['diagnostics_flagged']:
-                        print(" - None")
-                    else:
-                        for d in session_metrics['diagnostics_flagged']:
-                            print(f" - {d}")
-                    print(f"Report saved to: {summary_path}\n")
+                    print("\n╔════════════════════════════════════════════════════════════╗")
+                    print("║               🎓 POST-SESSION SUMMARY CARD 🎓               ║")
+                    print("╠════════════════════════════════════════════════════════════╣")
+                    print(f"║ 🔥 Current Streak:        {milestone_streak} Day(s)")
+                    print(f"║ 💬 Conversational Turns:  {session_metrics['total_turns']}")
+                    v_str = ', '.join(session_metrics['vocabulary_learned']) if session_metrics['vocabulary_learned'] else 'None'
+                    if len(v_str) > 35: v_str = v_str[:32] + "..."
+                    print(f"║ 📚 Vocabulary Learned:    {v_str}")
+                    w_str = ', '.join(weak_spots) if weak_spots else 'None recorded'
+                    if len(w_str) > 35: w_str = w_str[:32] + "..."
+                    print(f"║ 🎯 Recorded Weak Spots:   {w_str}")
+                    print(f"║ 💾 Saved Summary Path:    db/session_summary_...json")
+                    print("╚════════════════════════════════════════════════════════════╝\n")
                     break
             except Exception:
                 print(f"\nTutor: {reply}\n")

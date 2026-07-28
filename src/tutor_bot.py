@@ -17,7 +17,8 @@ class TutorResponse(BaseModel):
     new_vocabulary_introduced: list[str]
     diagnostics: Optional[str] = None
 
-def get_system_instruction(user_level, mentor_style):
+def get_system_instruction(user_level, mentor_style, weak_spots=None):
+    spots_str = ", ".join(weak_spots) if weak_spots else "None logged yet"
     # Core shared curriculum targets and rules
     core_rules = f"""
 SHARED CORE CURRICULUM & RULES:
@@ -30,6 +31,7 @@ SHARED CORE CURRICULUM & RULES:
 7. SESSION ANALYTICS: Track new words or phrases you teach the user in the `new_vocabulary_introduced` list. Note any recurring grammar strengths or weaknesses in the `diagnostics` field.
 8. PHONETICS, LIAISONS & ELISIONS: When using French words that blend together (e.g., "les amis" -> [lez-ami], "c'est un"), or when a mispronunciation occurs, provide a syllable-by-syllable pronunciation guide in `phonetic_breakdown` and explain the blending rule.
 9. INTELLIGENT REPETITION & ON-DEMAND LOOKUPS: If the user asks "can you repeat that?", rephrase politely with a helpful breakdown. If the user asks for a direct vocabulary definition (e.g., "What does 'avoir' mean?"), provide a clear definition and example in `mentor_feedback` before resuming normal conversational flow.
+10. SPACED REPETITION WEAK SPOTS: The user previously struggled with: [{spots_str}]. Organically weave these specific grammar rules or vocabulary words into conversation to re-test and reinforce their memory!
 """
 
     style_clean = mentor_style.lower()
@@ -68,19 +70,19 @@ ROLE & PERSONA: CHAMELEON HYBRID
 
     return f"{persona}\n{core_rules}"
 
-def create_chat(client, user_level, mentor_style):
+def create_chat(client, user_level, mentor_style, weak_spots=None):
     return client.chats.create(
         model="gemini-3.5-flash",
         config=types.GenerateContentConfig(
-            system_instruction=get_system_instruction(user_level, mentor_style),
+            system_instruction=get_system_instruction(user_level, mentor_style, weak_spots),
             temperature=0.7,
             response_mime_type="application/json",
             response_schema=TutorResponse
         )
     )
 
-def update_chat_persona(chat, user_level, mentor_style):
-    chat.config.system_instruction = get_system_instruction(user_level, mentor_style)
+def update_chat_persona(chat, user_level, mentor_style, weak_spots=None):
+    chat.config.system_instruction = get_system_instruction(user_level, mentor_style, weak_spots)
 
 RAG_ENABLED = True
 IS_HEALING = False
