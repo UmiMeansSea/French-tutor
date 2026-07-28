@@ -8,6 +8,7 @@ from google import genai
 from database import get_chroma_collection, auto_ingest_knowledge
 from tutor_bot import create_chat, handle_user_message
 from user_profile import load_profile, save_profile
+from audio_utils import speak_french, listen_to_mic, VOICE_AVAILABLE, TTS_AVAILABLE
 
 def main():
     # Load environment variables
@@ -17,7 +18,7 @@ def main():
         print("Warning: GEMINI_API_KEY environment variable not found in .env.")
         api_key = input("Please enter your Gemini API Key: ").strip()
 
-    client = genai.Client(api_key=api_key)
+    client = genai.Client(api_key=api_key, http_options={'timeout': 5.0})
 
     # Initialize ChromaDB and auto-ingest
     collection = get_chroma_collection()
@@ -46,8 +47,20 @@ def main():
         
     chat = create_chat(client, user_level, mentor_style)
     
+    # Prompt for Voice Mode
+    voice_mode = False
+    if VOICE_AVAILABLE:
+        voice_enable = input("Would you like to enable Voice Mode? (y/n): ").strip().lower()
+        voice_mode = voice_enable == 'y'
+    else:
+        print("\n[Voice Input (STT) is unavailable because speech_recognition or pyaudio is missing. Defaulting to typing mode.]")
+    
     print(f"\nAwesome! Your Chameleon Mentor is ready, locked in at {user_level}.")
-    print("Try asking it: 'Should I use tu or vous with my boss?' or just say 'Bonjour!'\n")
+    print("Try asking it: 'Should I use tu or vous with my boss?' or just say 'Bonjour!'")
+    if VOICE_AVAILABLE:
+        print("Tip: Type '/voice' at any time to toggle Voice Mode on/off.\n")
+    else:
+        print("Tip: Typing mode active. Responses will be spoken aloud if gTTS is installed.\n")
 
     session_metrics = {
         "total_turns": 0,
@@ -58,9 +71,29 @@ def main():
     # Start Loop
     while True:
         try:
-            user_input = input("You: ")
+            if voice_mode:
+                user_input = listen_to_mic()
+                if not user_input.strip():
+                    try:
+                        import pyaudio
+                    except ImportError:
+                        print("[Disabling Voice Mode: PyAudio is not installed. Falling back to typing mode.]\n")
+                        voice_mode = False
+                    continue
+                print(f"You (Spoken): {user_input}")
+            else:
+                user_input = input("You: ")
+                
             if user_input.lower() in ['quit', 'exit']:
                 break
+                
+            if user_input.strip().lower() == '/voice':
+                if VOICE_AVAILABLE:
+                    voice_mode = not voice_mode
+                    print(f"\n[Voice Mode {'enabled' if voice_mode else 'disabled'}]\n")
+                else:
+                    print("\n[Cannot enable Voice Mode: PyAudio or SpeechRecognition libraries are missing.]\n")
+                continue
                 
             session_metrics["total_turns"] += 1
             
@@ -68,7 +101,8 @@ def main():
             try:
                 import json
                 parsed = json.loads(reply)
-                print(f"\nTutor: {parsed.get('french_response', '')}")
+                french_resp = parsed.get('french_response', '')
+                print(f"\nTutor: {french_resp}")
                 if parsed.get('mentor_feedback'):
                     print(f"Feedback: {parsed['mentor_feedback']}")
                 
@@ -76,6 +110,9 @@ def main():
                 if parsed.get('internal_adaptation_level'):
                     print(f"*(Internal Tracking: {parsed['internal_adaptation_level']})*")
                 print()
+                
+                if voice_mode and french_resp:
+                    speak_french(french_resp)
                 if parsed.get('new_vocabulary_introduced'):
                     session_metrics["vocabulary_learned"].extend(parsed['new_vocabulary_introduced'])
                 if parsed.get('diagnostics'):
@@ -102,6 +139,8 @@ def main():
                     break
             except Exception:
                 print(f"\nTutor: {reply}\n")
+                if voice_mode:
+                    speak_french(reply)
         except Exception as e:
             print(f"An error occurred: {e}")
 

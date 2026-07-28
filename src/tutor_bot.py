@@ -1,8 +1,11 @@
+import time
+import random
 import json
 from pydantic import BaseModel, Field
 from typing import Optional
 from google import genai
 from google.genai import types
+from google.genai.errors import APIError
 
 class TutorResponse(BaseModel):
     french_response: str
@@ -31,7 +34,7 @@ RULES:
 """
 
 def create_chat(client, user_level, mentor_style):
-    return client.chats.create(
+    chat = client.chats.create(
         model="gemini-3.5-flash",
         config=types.GenerateContentConfig(
             system_instruction=get_system_instruction(user_level, mentor_style),
@@ -40,6 +43,10 @@ def create_chat(client, user_level, mentor_style):
             response_schema=TutorResponse
         )
     )
+    # Store settings for backup failover routing
+    chat._user_level = user_level
+    chat._mentor_style = mentor_style
+    return chat
 
 def handle_user_message(user_input, client, chat, collection):
     # Sliding window memory (Keep last 6 messages)
@@ -75,5 +82,58 @@ def handle_user_message(user_input, client, chat, collection):
     else:
         augmented_message = user_input
         
-    response = chat.send_message(augmented_message)
-    return response.text
+    try:
+        response = chat.send_message(augmented_message)
+        return response.text
+    except Exception as e:
+        # Fallback to local Ollama (Llama 3) for presentations
+        try:
+            import ollama
+            print("\n[Cloud API busy — smoothly routed to Local AI Backup]")
+            
+            # Retrieve conversation history
+            history = getattr(chat, "_history", None) or getattr(chat, "history", [])
+            
+            ollama_messages = [
+                {
+                    "role": "system", 
+                    "content": get_system_instruction(
+                        getattr(chat, "_user_level", "A2"), 
+                        getattr(chat, "_mentor_style", "Balanced")
+                    )
+                }
+            ]
+            
+            for msg in history:
+                role = "user" if msg.role == "user" else "assistant"
+                text_parts = [p.text for p in msg.parts if hasattr(p, "text") and p.text]
+                if text_parts:
+                    ollama_messages.append({"role": role, "content": "".join(text_parts)})
+            
+            # Add current message
+            ollama_messages.append({"role": "user", "content": augmented_message})
+            
+            response = ollama.chat(
+                model="llama3",
+                messages=ollama_messages,
+                format="json"
+            )
+            content = response.get('message', {}).get('content', '')
+            if not content.strip():
+                raise ValueError("Ollama returned an empty response.")
+                
+            # Verify it is valid JSON before returning
+            json.loads(content)
+            return content
+        except Exception as backup_error:
+            print(f"\n[Backup AI failed: {backup_error}]")
+            # Final fallback JSON response if all options are offline
+            fallback_response = {
+                "french_response": "Désolé, je me repose un petit moment. Reprenons notre conversation dans un instant !",
+                "mentor_feedback": "The AI mentor is taking a quick breather due to high traffic. Let's try sending that again!",
+                "internal_adaptation_level": "None (Cloud & Local Offline)",
+                "is_exit": False,
+                "new_vocabulary_introduced": [],
+                "diagnostics": "FAILOVER_ALL_OFFLINE"
+            }
+            return json.dumps(fallback_response)
