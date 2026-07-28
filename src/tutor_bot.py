@@ -19,14 +19,14 @@ class TutorResponse(BaseModel):
 
 from mentor_manager import build_mentor_instructions
 
-def get_system_instruction(user_level, mentor_style, weak_spots=None, user_memories=None, turtle_mode=False, user_name="Learner", user_hometown="", target_goal="", target_university="", target_city=""):
-    return build_mentor_instructions(user_level, mentor_style, user_memories, weak_spots, turtle_mode, user_name, user_hometown, target_goal, target_university, target_city)
+def get_system_instruction(user_level, mentor_style, weak_spots=None, user_memories=None, turtle_mode=False, user_name="Learner", user_hometown="", target_goal="", target_university="", target_city="", major="General", milestone_name="", milestone_date="", days_until_milestone=None):
+    return build_mentor_instructions(user_level, mentor_style, user_memories, weak_spots, turtle_mode, user_name, user_hometown, target_goal, target_university, target_city, major, milestone_name, milestone_date, days_until_milestone)
 
 MODEL_NAME = "gemini-flash-latest"  # Efficient, high-limit Gemini Flash model
 
-def create_chat(client, user_level, mentor_style, weak_spots=None, user_memories=None, turtle_mode=False, user_name="Learner", user_hometown="", target_goal="", target_university="", target_city=""):
+def create_chat(client, user_level, mentor_style, weak_spots=None, user_memories=None, turtle_mode=False, user_name="Learner", user_hometown="", target_goal="", target_university="", target_city="", major="General", milestone_name="", milestone_date="", days_until_milestone=None):
     models_to_try = ["gemini-flash-latest", "gemini-flash-lite-latest", "gemini-2.0-flash"]
-    sys_inst = get_system_instruction(user_level, mentor_style, weak_spots, user_memories, turtle_mode, user_name, user_hometown, target_goal, target_university, target_city)
+    sys_inst = get_system_instruction(user_level, mentor_style, weak_spots, user_memories, turtle_mode, user_name, user_hometown, target_goal, target_university, target_city, major, milestone_name, milestone_date, days_until_milestone)
     
     for m in models_to_try:
         try:
@@ -53,8 +53,8 @@ def create_chat(client, user_level, mentor_style, weak_spots=None, user_memories
         )
     )
 
-def update_chat_persona(client, user_level, mentor_style, weak_spots=None, user_memories=None, turtle_mode=False, user_name="Learner", user_hometown="", target_goal="", target_university="", target_city=""):
-    return create_chat(client, user_level, mentor_style, weak_spots, user_memories, turtle_mode, user_name, user_hometown, target_goal, target_university, target_city)
+def update_chat_persona(client, user_level, mentor_style, weak_spots=None, user_memories=None, turtle_mode=False, user_name="Learner", user_hometown="", target_goal="", target_university="", target_city="", major="General", milestone_name="", milestone_date="", days_until_milestone=None):
+    return create_chat(client, user_level, mentor_style, weak_spots, user_memories, turtle_mode, user_name, user_hometown, target_goal, target_university, target_city, major, milestone_name, milestone_date, days_until_milestone)
 
 import re
 
@@ -129,6 +129,20 @@ def retry_with_exponential_backoff(func, max_retries=5, initial_delay=1.0, max_d
             time.sleep(sleep_time)
             delay *= 2.0
 
+def infer_error_category(rule_text):
+    r = str(rule_text).lower()
+    if "gender" in r or "genre" in r or "le/la" in r or "un/une" in r or "masculin" in r or "féminin" in r:
+        return "Gender Agreement"
+    elif "conjugat" in r or "tense" in r or "temps" in r or "verb" in r or "verbe" in r or "imparfait" in r or "passé" in r:
+        return "Conjugation & Tenses"
+    elif "preposition" in r or "à " in r or "en " in r or "de " in r:
+        return "Prepositions"
+    elif "vocab" in r or "word" in r or "mot" in r or "sens" in r:
+        return "Vocabulary"
+    elif "pronounc" in r or "accent" in r or "phonet" in r or "liaison" in r:
+        return "Pronunciation"
+    return "Syntax & Grammar"
+
 def process_notepad_tags(raw_text, user_input, mentor_name="Mentor"):
     if not raw_text or "[NOTEPAD]" not in raw_text:
         return raw_text
@@ -140,7 +154,7 @@ def process_notepad_tags(raw_text, user_input, mentor_name="Mentor"):
             clean_text = (raw_text[:start_idx] + raw_text[end_idx + 11:]).strip()
             
             parts = tag_content.split("|")
-            orig, corr, rule = user_input, "", "Grammar Correction"
+            orig, corr, rule, cat = user_input, "", "Grammar Correction", "General"
             for p in parts:
                 p_str = p.strip()
                 if p_str.startswith("Original:"):
@@ -149,10 +163,15 @@ def process_notepad_tags(raw_text, user_input, mentor_name="Mentor"):
                     corr = p_str[10:].strip()
                 elif p_str.startswith("Rule:"):
                     rule = p_str[5:].strip()
+                elif p_str.startswith("Category:"):
+                    cat = p_str[9:].strip()
             
+            if cat == "General":
+                cat = infer_error_category(rule)
+
             if corr:
                 from database import save_notepad_entry
-                save_notepad_entry(mentor_name, orig, corr, rule)
+                save_notepad_entry(mentor_name, orig, corr, rule, cat)
             return clean_text
     except Exception:
         pass

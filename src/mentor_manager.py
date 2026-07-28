@@ -24,7 +24,17 @@ MENTOR_PROFILES = {
     }
 }
 
-def build_mentor_instructions(user_level, mentor_style, user_memories=None, weak_spots=None, turtle_mode=False, user_name="Learner", user_hometown="", target_goal="", target_university="", target_city=""):
+MAJOR_VOCABULARY = {
+    "computer science": ["algorithme", "code source", "base de données", "intelligence artificielle", "développement web", "réseau", "programmeur"],
+    "business": ["gestion", "commerce international", "chiffre d'affaires", "marketing digital", "entreprise", "stratégie", "investissement"],
+    "engineering": ["ingénierie", "conception mécanique", "système embarqué", "innovation", "robotique", "calcul des structures"],
+    "medicine": ["diagnostic", "traitement", "médecine générale", "santé publique", "patient", "ordonnance", "consultation"],
+    "law": ["droit constitutionnel", "jurisprudence", "avocat", "tribunal", "code civil", "contrat", "législation"],
+    "fine arts": ["histoire de l'art", "sculpture", "peinture", "esthétique", "galerie", "patrimoine culturel", "exposition"],
+    "literature": ["roman", "poésie", "analyse littéraire", "auteur", "métaphore", "critique littéraire", "ouvrage"]
+}
+
+def build_mentor_instructions(user_level, mentor_style, user_memories=None, weak_spots=None, turtle_mode=False, user_name="Learner", user_hometown="", target_goal="", target_university="", target_city="", major="General", milestone_name="", milestone_date="", days_until_milestone=None):
     mem_prompt = format_memories_for_prompt(user_memories)
     spots_str = ", ".join(weak_spots) if weak_spots else "None logged yet"
     pacing_rule = "5. **Pacing & Speed:** Turtle Mode 🐢 is ACTIVE. Speak slowly, clearly, and deliberately with simple sentences so the user can follow." if turtle_mode else "5. **Pacing & Speed:** Speak at a natural, fluid conversational pace."
@@ -33,24 +43,46 @@ def build_mentor_instructions(user_level, mentor_style, user_memories=None, weak
     goal_info = f" | Primary Goal: {target_goal}" if target_goal else ""
     uni_info = f" | Target University: {target_university}" if target_university else ""
     city_info = f" | Target City: {target_city}" if target_city else ""
+    major_info = f" | Field of Study: {major}" if major and major != 'General' else ""
 
-    user_identity = f"USER IDENTITY & GOAL CONTEXT: The user's name is {user_name}{hometown_info}.{goal_info}{uni_info}{city_info}"
+    user_identity = f"USER IDENTITY & GOAL CONTEXT: The user's name is {user_name}{hometown_info}.{goal_info}{uni_info}{city_info}{major_info}"
+
+    # Major-Specific Vocabulary Injection
+    major_clean = str(major).lower().strip()
+    vocab_list = MAJOR_VOCABULARY.get(major_clean, [])
+    vocab_instruction = f"\nMAJOR-SPECIFIC VOCABULARY ({major}): Try to naturally weave these French terms into roleplays & prompts: [{', '.join(vocab_list)}]." if vocab_list else ""
+
+    # Smart Error Analytics Insight
+    try:
+        from database import get_top_error_category
+        top_err = get_top_error_category()
+    except Exception:
+        top_err = None
+    err_instruction = f"\nANALYTICS WEAKNESS ALERT: User's top recurring error category is '{top_err}'. Offer targeted practice on this rule!" if top_err else ""
+
+    # Milestone Countdown Urgency
+    milestone_instruction = ""
+    if days_until_milestone is not None and days_until_milestone <= 7 and milestone_name:
+        milestone_instruction = f"\nURGENT COUNTDOWN ALERT ⏳: '{milestone_name}' is in JUST {days_until_milestone} DAY(S)! Drop casual chat, shift to INTENSIVE MOCK PRACTICE & ENCOURAGEMENT!"
 
     style_clean = mentor_style.lower()
     if "derek" in style_clean or "coach" in style_clean or "strict" in style_clean:
         mentor_name = "Derek"
-        mentor_description = "mid-30s strict academic teacher (Voice: Charon). Meticulous, structured, authoritative, yet encouraging"
+        mentor_description = "mid-30s strict academic coach & university debate mentor (Voice: Charon). Focuses on formal debates, university mock interviews, professional arguments, and pristine grammar precision"
+        specialization_rule = "11. **Academic Coach Specialization:** Conduct formal debate practice, university application mock interviews, and structure arguments with academic connectors (En outre, Néanmoins, Par conséquent)."
     elif "alice" in style_clean or "storyteller" in style_clean or "story" in style_clean:
         mentor_name = "Alice"
-        mentor_description = "late-20s eclectic bibliophile and companion (Voice: Gacrux). Devours novels, history, and legends with eccentric charm"
+        mentor_description = "late-20s local guide & transit/housing specialist (Voice: Gacrux). Focuses on local city logistics, RATP metro navigation, housing lease (bail) advice, and historical secrets"
+        specialization_rule = "11. **Local Guide Specialization:** Act as an expert city navigator. Help with metro routes, housing contracts (bail/loyer/CAF), neighborhood secrets, and local cultural etiquette."
     else:
         mentor_name = "Clara"
-        mentor_description = "early-20s light, carefree expat living in France (Voice: Leda). Relatable, upbeat, and casual"
+        mentor_description = "early-20s casual expat friend & social adaptation mentor (Voice: Leda). Focuses on daily life, informal modern slang (du coup, bah, genre), making French friends, and relaxed social chats"
+        specialization_rule = "11. **Casual Friend Specialization:** Keep conversations lighthearted, upbeat, and social. Teach modern informal phrasing (du coup, c'est grave bien) and help with real-world casual social adaptation."
 
     system_prompt = f"""
 You are {mentor_name}, a {mentor_description} acting as a fluent, natural conversational French tutor locked in at CEFR Level {user_level}.
 
-{user_identity}
+{user_identity}{vocab_instruction}{err_instruction}{milestone_instruction}
 
 CRITICAL BEHAVIORAL RULES:
 1. **Absolute Naturalness:** Speak like a real human texting or talking casually with a friend. Never use overly dramatic, robotic, or exaggerated slang (NEVER use phrases like "Like... totally!", "Ooh la la!", or cartoonish filler).
@@ -63,7 +95,8 @@ CRITICAL BEHAVIORAL RULES:
 8. **Structured Mentor Notepad:** If the user made a grammar or vocabulary mistake, append a structured notepad block at the end of your response in this exact format:
 [NOTEPAD] Original: <user mistake> | Corrected: <correct phrase> | Rule: <brief grammar rule> [/NOTEPAD]
 9. **Conversational Openers:** Since you already know the user ({user_name}), NEVER re-ask introductory questions (such as 'What is your name?' or 'Where are you from?'). Open casually with a warm, natural greeting (e.g., asking how their day is going or what they're up to) and only reference their background if relevant.
-10. **Periodic Progress Check-Ins & Local Knowledge Support:** Remember the user's primary goal ({target_goal}), target university ({target_university}), and target city ({target_city}). Occasionally check in on their preparation progress (e.g. asking how their language prep or university application is coming along) rather than bringing it up every message. When asked (or contextually during chat/roleplays), act as a knowledgeable local guide providing factual insights about the target city/university, culture, neighborhoods, or simulating mock university/job interviews in French!
+10. **Periodic Progress Check-Ins & Local Knowledge Support:** Remember the user's primary goal ({target_goal}), target university ({target_university}), and target city ({target_city}). Occasionally check in on their preparation progress. When asked (or contextually during chat/roleplays), act as a knowledgeable guide!
+{specialization_rule}
 
 {mem_prompt}
 """
