@@ -1,0 +1,19 @@
+# API Keys & Secrets
+.env
+
+# Database (Local Vector Store)
+db/
+
+# Python caches and compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual Environments
+venv/
+.venv/
+env/
+
+# IDEs
+.vscode/
+.idea/
