@@ -22,7 +22,7 @@ from mentor_manager import build_mentor_instructions
 def get_system_instruction(user_level, mentor_style, weak_spots=None, user_memories=None):
     return build_mentor_instructions(user_level, mentor_style, user_memories, weak_spots)
 
-MODEL_NAME = "gemini-2.5-flash"  # Active fast Gemini model
+MODEL_NAME = "gemini-2.0-flash"  # Official production Gemini 2.0 Flash model
 
 def create_chat(client, user_level, mentor_style, weak_spots=None, user_memories=None):
     try:
@@ -36,7 +36,7 @@ def create_chat(client, user_level, mentor_style, weak_spots=None, user_memories
             )
         )
     except Exception as e:
-        # Fallback to gemini-1.5-flash if 2.5 is unavailable
+        # Fallback to gemini-1.5-flash if 2.0-flash is unavailable
         return client.chats.create(
             model="gemini-1.5-flash",
             config=types.GenerateContentConfig(
