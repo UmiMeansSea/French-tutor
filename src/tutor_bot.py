@@ -140,6 +140,11 @@ def handle_user_message(user_input, client, chat, collection):
             code_str = getattr(e, 'code', None) or getattr(e, 'status_code', None) or 'N/A'
             print(f"\n[API Exception ({type(e).__name__}) - HTTP Status Code: {code_str}]")
             print(f"[Error Detail: {str(e)}]")
+            
+            if "ConnectTimeout" in type(e).__name__ or "timeout" in str(e).lower() or "ConnectError" in type(e).__name__:
+                print("\n🌐 [NETWORK DIAGNOSTIC ADVISORY]: Connection timed out while contacting Google Gemini servers.")
+                print("👉 Tip: Please check your internet connection, active VPN, firewall rules, or proxy configuration!\n")
+
             print("[Traceback Details]:")
             traceback.print_exc()
             

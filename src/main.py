@@ -5,6 +5,7 @@ import json
 import traceback
 from dotenv import load_dotenv
 from google import genai
+from google.genai import types
 
 from database import get_chroma_collection, auto_ingest_knowledge
 from tutor_bot import create_chat, handle_user_message, update_chat_persona
@@ -45,8 +46,8 @@ def main():
         print("Warning: GEMINI_API_KEY environment variable not found in .env.")
         api_key = input("Please enter your Gemini API Key: ").strip()
 
-    # Initialize Gemini client with resilient 30s timeout
-    client = genai.Client(api_key=api_key, http_options={'timeout': 30.0})
+    # Initialize Gemini client with resilient 60s timeout for network transport layer
+    client = genai.Client(api_key=api_key, http_options=types.HttpOptions(timeout=60000))
 
     # Initialize ChromaDB and auto-ingest
     collection = get_chroma_collection()
