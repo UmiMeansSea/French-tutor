@@ -40,8 +40,8 @@ def get_active_ollama_model():
     return "llama3:latest"
 
 def normalize_tutor_response(tutor_reply):
-    if not tutor_reply or not str(tutor_reply).strip():
-        tutor_reply = "Coucou ! Comment ça va aujourd'hui ?"
+    if not tutor_reply or not str(tutor_reply).strip() or str(tutor_reply).strip() == "{}":
+        tutor_reply = "Coucou ! Enchantée ! Comment ça va aujourd'hui ?"
     
     clean_text = str(tutor_reply).strip()
     if clean_text.startswith("```json"):
@@ -52,12 +52,14 @@ def normalize_tutor_response(tutor_reply):
         clean_text = clean_text[:-3]
     clean_text = clean_text.strip()
 
+    if clean_text == "{}":
+        clean_text = "Coucou ! Enchantée ! Comment ça va aujourd'hui ?"
+
     try:
         data = json.loads(clean_text)
-        if isinstance(data, dict):
-            # Ensure french_response is non-empty
+        if isinstance(data, dict) and data:
             fr_text = data.get("french_response") or data.get("response") or data.get("french") or data.get("content")
-            if not fr_text or not str(fr_text).strip():
+            if not fr_text or not str(fr_text).strip() or str(fr_text).strip() == "{}":
                 fr_text = clean_text
             data["french_response"] = fr_text
             if not data.get("internal_adaptation_level"):
@@ -70,7 +72,7 @@ def normalize_tutor_response(tutor_reply):
     except Exception:
         pass
 
-    # Fallback structure if model returned plain conversational text
+    # Standard plain text response from local Ollama model
     structured = {
         "french_response": clean_text,
         "mentor_feedback": None,
@@ -100,35 +102,23 @@ class OllamaChatSession:
         try:
             response = ollama.chat(
                 model=self.model_name,
-                messages=self.messages,
-                format="json"
+                messages=self.messages
             )
             tutor_reply = response['message']['content']
             norm_reply = normalize_tutor_response(tutor_reply)
             self.messages.append({"role": "assistant", "content": norm_reply})
             return norm_reply
-        except Exception as e:
-            try:
-                # Fallback without explicit format="json" if model doesn't support structured JSON mode
-                response = ollama.chat(
-                    model=self.model_name,
-                    messages=self.messages
-                )
-                tutor_reply = response['message']['content']
-                norm_reply = normalize_tutor_response(tutor_reply)
-                self.messages.append({"role": "assistant", "content": norm_reply})
-                return norm_reply
-            except Exception as inner_e:
-                fallback_resp = {
-                    "french_response": "Désolé, Ollama rencontre un petit problème. Peux-tu me répéter ta phrase ?",
-                    "mentor_feedback": f"Ollama local inference error ({type(inner_e).__name__}): {str(inner_e)}. Installed model: {self.model_name}.",
-                    "phonetic_breakdown": "N/A",
-                    "internal_adaptation_level": "Local Ollama Fallback",
-                    "is_exit": False,
-                    "new_vocabulary_introduced": [],
-                    "diagnostics": "OLLAMA_LOCAL_ERROR"
-                }
-                return json.dumps(fallback_resp)
+        except Exception as inner_e:
+            fallback_resp = {
+                "french_response": "Coucou ! Désolé, Ollama rencontre un petit problème. Peux-tu me répéter ta phrase ?",
+                "mentor_feedback": f"Ollama local inference error ({type(inner_e).__name__}): {str(inner_e)}. Installed model: {self.model_name}.",
+                "phonetic_breakdown": None,
+                "internal_adaptation_level": "Local Ollama Fallback",
+                "is_exit": False,
+                "new_vocabulary_introduced": [],
+                "diagnostics": "OLLAMA_LOCAL_ERROR"
+            }
+            return json.dumps(fallback_resp)
 
 def create_chat(client, user_level, mentor_style, weak_spots=None, user_memories=None, turtle_mode=False):
     sys_inst = get_system_instruction(user_level, mentor_style, weak_spots, user_memories, turtle_mode)

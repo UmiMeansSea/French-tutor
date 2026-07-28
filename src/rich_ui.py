@@ -134,8 +134,8 @@ def render_mentor_dialogue(parsed, mentor_style):
             parsed = {"french_response": parsed}
 
     french_text = parsed.get("french_response", "") if isinstance(parsed, dict) else str(parsed)
-    if not french_text or not str(french_text).strip():
-        french_text = "Coucou ! Comment puis-je t'aider aujourd'hui ?"
+    if not french_text or not str(french_text).strip() or str(french_text).strip() in ["{}", "null"]:
+        french_text = "Coucou ! Enchantée ! Comment puis-je t'aider aujourd'hui ?"
 
     feedback = parsed.get("mentor_feedback") if isinstance(parsed, dict) else None
     phonetics = parsed.get("phonetic_breakdown") if isinstance(parsed, dict) else None
