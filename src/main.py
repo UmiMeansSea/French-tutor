@@ -15,6 +15,9 @@ from stats import render_stat_chart, award_stat_xp, DEFAULT_STATS
 from memory_manager import extract_session_memories
 from mentor_manager import render_mentor_dossier
 
+from google import genai
+from google.genai import types
+
 def select_style_menu():
     print("\n--- Choose Your Chameleon Mentor Persona ---")
     print("1. Clara (The Vibrant Expat Friend) 🌸 — Upbeat, quirky, active listener, boosts Charm & Knowledge")
@@ -50,9 +53,13 @@ def get_voice_speed(mentor_style):
 def main():
     # Load environment variables
     load_dotenv()
+    api_key = os.environ.get("GEMINI_API_KEY")
+    if not api_key:
+        print("Warning: GEMINI_API_KEY environment variable not found in .env.")
+        api_key = input("Please enter your Gemini API Key: ").strip()
 
-    # Local Ollama client setup (client reference)
-    client = None
+    # Initialize Gemini client with resilient 60s timeout for network transport layer
+    client = genai.Client(api_key=api_key, http_options=types.HttpOptions(timeout=60000))
 
     # Initialize ChromaDB and auto-ingest
     collection = get_chroma_collection()
