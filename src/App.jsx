@@ -22,13 +22,11 @@ export default function App() {
 
   const handleSelectMentor = (mentor) => {
     setCurrentMentor(mentor);
-    // Clear unread red dot on click
     setMentors(prev => prev.map(m => m.id === mentor.id ? { ...m, unread: false } : m));
     setActiveView('chat');
   };
 
   const handleEndCall = () => {
-    // Run long-term memory extraction worker post-session
     const updatedProfile = runMemoryExtractionWorker(
       { vocabLearned: ['l\'addition', 's\'il vous plaît'] },
       userProfile
@@ -39,7 +37,7 @@ export default function App() {
 
   return (
     <div className="flex h-screen w-screen bg-slate-950 text-slate-100 font-sans overflow-hidden">
-      {/* Sidebar Navigation */}
+      {/* Left Sidebar (Fixed 80w Column) */}
       <Sidebar 
         mentors={mentors}
         currentMentor={currentMentor}
@@ -50,8 +48,8 @@ export default function App() {
         onCloseMobile={() => setSidebarOpen(false)}
       />
 
-      {/* Main Active View Shell */}
-      <main className="flex-1 flex flex-col h-full relative">
+      {/* Right Column (Occupies Remaining Space) */}
+      <main className="flex-1 flex flex-col h-full min-w-0 bg-slate-950 relative overflow-hidden">
         <ChatWindow 
           mentor={currentMentor}
           onOpenMentorProfile={() => setActiveView('mentor-profile')}
@@ -62,7 +60,7 @@ export default function App() {
         />
       </main>
 
-      {/* Full-Screen Voice Call Walking Mode */}
+      {/* Full-Screen Voice Call Overlay */}
       {activeView === 'call' && (
         <VoiceCall 
           mentor={currentMentor}
