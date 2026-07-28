@@ -177,8 +177,11 @@ def main():
                 print(f"\n[Voice Mode Toggled: {status_str}]\n")
                 continue
 
-            if user_input.strip().lower() == '/dossier':
-                render_mentor_dossier(mentor_style, profile)
+            if user_input.strip().lower() == '/notepad':
+                from database import get_notepad_entries
+                from rich_ui import render_notepad_dashboard
+                notepad_rows = get_notepad_entries()
+                render_notepad_dashboard(notepad_rows)
                 continue
 
             if user_input.strip().lower() == '/vault':
@@ -261,9 +264,9 @@ def main():
             try:
                 from rich_ui import status_spinner
                 with status_spinner(f"☕ Brewing connection & response with {mentor_style}...", mentor_style):
-                    reply = handle_user_message(user_input, client, chat, collection)
+                    reply = handle_user_message(user_input, client, chat, collection, mentor_name=mentor_style)
             except Exception:
-                reply = handle_user_message(user_input, client, chat, collection)
+                reply = handle_user_message(user_input, client, chat, collection, mentor_name=mentor_style)
 
             try:
                 import json

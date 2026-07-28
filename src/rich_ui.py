@@ -112,6 +112,7 @@ def render_command_dashboard():
 
     table.add_row("/call", "Toggle Hands-Free Continuous VAD Voice Call Mode", "🎙️ Audio / Voice")
     table.add_row("/vault", "Review Saved Vocabulary Words & Translations in SQLite", "📚 Vocabulary Vault")
+    table.add_row("/notepad", "View Persistent Mentor Grammar & Vocabulary Corrections", "📝 Mentor Notepad")
     table.add_row("/dossier", "View Active Mentor Notes, Perks & Improvement Targets", "📋 Mentor Dossier")
     table.add_row("/stats", "Display RPG Persona Stat Chart & Synergy Multipliers", "📊 RPG Progression")
     table.add_row("/hangout", "Launch Mentor-Specific Relaxed Hangout Session", "☕ Study Hangout")
@@ -147,6 +148,31 @@ def render_vault_dashboard(vault_rows):
             table.add_row(word, trans, lvl, dt_str)
 
     panel = Panel(table, border_style="purple3", box=box.ROUNDED, padding=(0, 1))
+    console.print(panel)
+
+def render_notepad_dashboard(notepad_rows):
+    table = Table(
+        title="📝 MENTOR CORRECTION NOTEPAD (SQLITE PERSISTED) 📝",
+        box=box.ROUNDED,
+        header_style="bold magenta",
+        border_style="deep_pink3",
+        expand=True
+    )
+    table.add_column("Date / Mentor", style="bold cyan", width=18)
+    table.add_column("Original Input", style="bold red", width=22)
+    table.add_column("Corrected Phrase", style="bold green", width=24)
+    table.add_column("Grammar Rule & Context", style="bold yellow")
+
+    if not notepad_rows:
+        table.add_row("-", "No corrections logged", "Good job! Keep practicing!", "No mistakes recorded yet.")
+    else:
+        for row in notepad_rows:
+            # row: id, timestamp, mentor_name, user_input, correction, rule
+            _, dt, mentor, user_inp, corr, rule = row
+            dt_str = f"{str(dt)[:10]} ({mentor or 'Mentor'})"
+            table.add_row(dt_str, user_inp, corr, rule)
+
+    panel = Panel(table, border_style="deep_pink3", box=box.ROUNDED, padding=(0, 1))
     console.print(panel)
 
 def render_mentor_dialogue(parsed, mentor_style):

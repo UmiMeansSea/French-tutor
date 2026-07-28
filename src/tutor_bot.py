@@ -95,7 +95,36 @@ def retry_with_exponential_backoff(func, max_retries=5, initial_delay=1.0, max_d
             time.sleep(sleep_time)
             delay *= 2.0
 
-def handle_user_message(user_input, client, chat, collection=None):
+def process_notepad_tags(raw_text, user_input, mentor_name="Mentor"):
+    if not raw_text or "[NOTEPAD]" not in raw_text:
+        return raw_text
+    try:
+        start_idx = raw_text.find("[NOTEPAD]")
+        end_idx = raw_text.find("[/NOTEPAD]")
+        if start_idx != -1 and end_idx != -1:
+            tag_content = raw_text[start_idx + 9:end_idx].strip()
+            clean_text = (raw_text[:start_idx] + raw_text[end_idx + 11:]).strip()
+            
+            parts = tag_content.split("|")
+            orig, corr, rule = user_input, "", "Grammar Correction"
+            for p in parts:
+                p_str = p.strip()
+                if p_str.startswith("Original:"):
+                    orig = p_str[9:].strip()
+                elif p_str.startswith("Corrected:"):
+                    corr = p_str[10:].strip()
+                elif p_str.startswith("Rule:"):
+                    rule = p_str[5:].strip()
+            
+            if corr:
+                from database import save_notepad_entry
+                save_notepad_entry(mentor_name, orig, corr, rule)
+            return clean_text
+    except Exception:
+        pass
+    return raw_text
+
+def handle_user_message(user_input, client, chat, collection=None, mentor_name="Mentor"):
     # Sliding History Windowing: Strictly truncate history to last 6 messages to stay under TPM limits
     if hasattr(chat, "_history") and len(chat._history) > 6:
         chat._history = chat._history[-6:]
@@ -135,7 +164,8 @@ def handle_user_message(user_input, client, chat, collection=None):
             augmented_message = user_input
         
     try:
-        return retry_with_exponential_backoff(lambda: chat.send_message(augmented_message).text)
+        raw_res = retry_with_exponential_backoff(lambda: chat.send_message(augmented_message).text)
+        return process_notepad_tags(raw_res, user_input, mentor_name)
     except Exception:
         fallback_response = {
             "french_response": "Désolé, la connexion est un peu lente. Peux-tu me répéter ta phrase ?",

@@ -35,9 +35,47 @@ def init_sqlite_db():
         )
     """)
     
+    # Mentor Notepad table
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS notepad (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            mentor_name TEXT,
+            user_input TEXT,
+            correction TEXT,
+            rule TEXT
+        )
+    """)
+    
     cursor.execute("INSERT OR IGNORE INTO user_profile (id, level, xp, streak) VALUES (1, 'A1', 0, 0)")
     conn.commit()
     conn.close()
+
+def save_notepad_entry(mentor_name, user_input, correction, rule="Grammar Correction"):
+    if not correction or not str(correction).strip():
+        return
+    db_path = get_sqlite_path()
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "INSERT INTO notepad (mentor_name, user_input, correction, rule) VALUES (?, ?, ?, ?)",
+            (mentor_name.strip(), user_input.strip(), correction.strip(), rule.strip())
+        )
+        conn.commit()
+    except Exception:
+        pass
+    finally:
+        conn.close()
+
+def get_notepad_entries():
+    db_path = get_sqlite_path()
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, timestamp, mentor_name, user_input, correction, rule FROM notepad ORDER BY id DESC")
+    rows = cursor.fetchall()
+    conn.close()
+    return rows
 
 def save_vault_word(word, translation="N/A", cefr_level="A1"):
     if not word or not str(word).strip():
