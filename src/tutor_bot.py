@@ -11,6 +11,7 @@ from google.genai.errors import APIError
 class TutorResponse(BaseModel):
     french_response: str
     mentor_feedback: Optional[str] = None
+    phonetic_breakdown: Optional[str] = None
     internal_adaptation_level: str
     is_exit: bool
     new_vocabulary_introduced: list[str]
@@ -27,6 +28,8 @@ SHARED CORE CURRICULUM & RULES:
 5. RAG KNOWLEDGE: If grammar context from the database is provided, use that specific rule to explain mistakes.
 6. SMART EXIT DETECTION: Monitor for standard exit or goodbye cues (e.g., "au revoir", "bye", "goodbye"). If detected, set `is_exit` to true and respond with a warm, natural sign-off in French.
 7. SESSION ANALYTICS: Track new words or phrases you teach the user in the `new_vocabulary_introduced` list. Note any recurring grammar strengths or weaknesses in the `diagnostics` field.
+8. PHONETICS, LIAISONS & ELISIONS: When using French words that blend together (e.g., "les amis" -> [lez-ami], "c'est un"), or when a mispronunciation occurs, provide a syllable-by-syllable pronunciation guide in `phonetic_breakdown` and explain the blending rule.
+9. INTELLIGENT REPETITION & ON-DEMAND LOOKUPS: If the user asks "can you repeat that?", rephrase politely with a helpful breakdown. If the user asks for a direct vocabulary definition (e.g., "What does 'avoir' mean?"), provide a clear definition and example in `mentor_feedback` before resuming normal conversational flow.
 """
 
     style_clean = mentor_style.lower()

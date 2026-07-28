@@ -75,9 +75,13 @@ def main():
     else:
         print("\n[Voice Input (STT) is unavailable because speech_recognition or pyaudio is missing. Defaulting to typing mode.]")
     
+    milestone_streak = profile.get("milestone_streak", 0) if profile else 0
+    current_speed = get_voice_speed(mentor_style)
+    
     print(f"\nAwesome! Your Chameleon Mentor is ready, locked in at {user_level} ({mentor_style}).")
+    print(f"Daily Milestone Streak: {milestone_streak} day(s) 🔥")
     print("Try asking it: 'Should I use tu or vous with my boss?' or just say 'Bonjour!'")
-    print("Tip: Type '/profile' to change profiles; type '/voice' to toggle Voice Mode.\n")
+    print("Commands: /profile (switch persona) | /voice (toggle audio) | /shadow (echo drill) | /story (daily passage) | /milestones (daily streak)\n")
 
     session_metrics = {
         "total_turns": 0,
@@ -111,10 +115,35 @@ def main():
 
             if user_input.strip().lower() == '/profile':
                 mentor_style = select_style_menu()
-                save_profile(user_level, mentor_style)
+                save_profile(user_level, mentor_style, milestone_streak)
                 update_chat_persona(chat, user_level, mentor_style)
+                current_speed = get_voice_speed(mentor_style)
                 print(f"\n[Mentor style updated dynamically to: {mentor_style}]\n")
                 continue
+
+            if user_input.strip().lower() == '/shadow':
+                user_input = "Please give me 1 native French sentence with proper liaisons for me to shadow and repeat back."
+                print("\n[Starting Interactive Shadowing Drill...]\n")
+
+            if user_input.strip().lower() == '/story':
+                user_input = f"Please read me a short 3-sentence story in French appropriate for my level ({user_level}), and ask me 2 simple questions."
+                print("\n[Starting Daily Reading Session...]\n")
+
+            if user_input.strip().lower() == '/milestones':
+                print(f"\n--- Daily Micro-Milestones (Streak: {milestone_streak} Days 🔥) ---")
+                print("1. [x] Core Lesson / Reading Comprehension")
+                print("2. [x] Pronunciation & Blending Drill")
+                print("3. [x] Shadowing & Conversation Challenge")
+                milestone_streak += 1
+                save_profile(user_level, mentor_style, milestone_streak)
+                print(f"Awesome job! Milestone completed! Streak updated to {milestone_streak} days!\n")
+                continue
+
+            # Speed Adaptation check
+            slow_triggers = ["too fast", "slow down", "je ne comprends pas", "plus lentement"]
+            if any(t in user_input.lower() for t in slow_triggers):
+                current_speed = max(650, current_speed - 200)
+                print(f"*(Speed Adapted: Dropped speaking rate to {current_speed} for clarity)*")
                 
             session_metrics["total_turns"] += 1
             
@@ -124,6 +153,8 @@ def main():
                 parsed = json.loads(reply)
                 french_resp = parsed.get('french_response', '')
                 print(f"\nTutor: {french_resp}")
+                if parsed.get('phonetic_breakdown'):
+                    print(f"Phonetics & Blending: {parsed['phonetic_breakdown']}")
                 if parsed.get('mentor_feedback'):
                     print(f"Feedback: {parsed['mentor_feedback']}")
                 
@@ -133,7 +164,7 @@ def main():
                 print()
                 
                 if voice_mode and french_resp:
-                    speak_french(french_resp, speed=get_voice_speed(mentor_style))
+                    speak_french(french_resp, speed=current_speed)
                 if parsed.get('new_vocabulary_introduced'):
                     session_metrics["vocabulary_learned"].extend(parsed['new_vocabulary_introduced'])
                 if parsed.get('diagnostics'):
@@ -161,7 +192,7 @@ def main():
             except Exception:
                 print(f"\nTutor: {reply}\n")
                 if voice_mode:
-                    speak_french(reply, speed=get_voice_speed(mentor_style))
+                    speak_french(reply, speed=current_speed)
         except Exception as e:
             print(f"\n[An error occurred during runtime:]")
             traceback.print_exc()
