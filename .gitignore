@@ -4,6 +4,10 @@
 # Database (Local Vector Store)
 db/
 
+# Temporary Audio Files
+*.mp3
+*.wav
+
 # Python caches and compiled files
 __pycache__/
 *.py[cod]
