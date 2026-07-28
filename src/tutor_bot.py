@@ -56,10 +56,30 @@ def create_chat(client, user_level, mentor_style, weak_spots=None, user_memories
 def update_chat_persona(client, user_level, mentor_style, weak_spots=None, user_memories=None, turtle_mode=False):
     return create_chat(client, user_level, mentor_style, weak_spots, user_memories, turtle_mode)
 
+import re
+
+def extract_retry_seconds(error_message):
+    """
+    Parses the server's requested retry delay in seconds from 429 error messages.
+    Supports formats like 'Please retry in 14.5s', 'retry after 10 seconds', etc.
+    """
+    if not error_message:
+        return None
+    msg_str = str(error_message)
+    match = re.search(r'retry\s+(?:in|after)\s+(\d+(?:\.\d+)?)\s*s(?:ec(?:onds)?)?', msg_str, re.IGNORECASE)
+    if not match:
+        match = re.search(r'(\d+(?:\.\d+)?)\s*s(?:ec(?:onds)?)?\s+retry', msg_str, re.IGNORECASE)
+    if match:
+        try:
+            return float(match.group(1))
+        except ValueError:
+            pass
+    return None
+
 def retry_with_exponential_backoff(func, max_retries=5, initial_delay=1.0, max_delay=32.0):
     """
     Executes func() with exponential backoff and random jitter.
-    Specifically handles HTTP 429 (Resource Exhausted / Rate Limit) and transient network timeouts.
+    Respects server-sent 'Please retry in Xs' requested delays on HTTP 429.
     """
     delay = initial_delay
     for attempt in range(1, max_retries + 1):
@@ -74,9 +94,16 @@ def retry_with_exponential_backoff(func, max_retries=5, initial_delay=1.0, max_d
                 print(f"[Max retries ({max_retries}) reached. Switching to graceful breather fallback.]")
                 raise e
             
-            jitter = random.uniform(0.2, 0.8)
-            sleep_time = min(delay + jitter, max_delay)
-            print(f"⏳ [Rate Limit Breather]: Pausing for {sleep_time:.1f}s to clear quota window... (Attempt {attempt}/{max_retries})")
+            server_delay = extract_retry_seconds(msg) or extract_retry_seconds(str(e))
+            if server_delay is not None and server_delay > 0:
+                safety_buffer = 1.0  # Buffer margin to guarantee quota window clearance
+                sleep_time = server_delay + safety_buffer
+                print(f"⏳ [Server-Requested Quota Wait]: Server asked to wait {server_delay:.1f}s. Sleeping {sleep_time:.1f}s (+1.0s buffer)... (Attempt {attempt}/{max_retries})")
+            else:
+                jitter = random.uniform(0.2, 0.8)
+                sleep_time = min(delay + jitter, max_delay)
+                print(f"⏳ [Rate Limit Breather]: Pausing for {sleep_time:.1f}s to clear quota window... (Attempt {attempt}/{max_retries})")
+            
             time.sleep(sleep_time)
             delay *= 2.0
         except Exception as e:
@@ -89,9 +116,16 @@ def retry_with_exponential_backoff(func, max_retries=5, initial_delay=1.0, max_d
                 print(f"[Max retries ({max_retries}) reached for {type(e).__name__}.]")
                 raise e
 
-            jitter = random.uniform(0.2, 0.8)
-            sleep_time = min(delay + jitter, max_delay)
-            print(f"⏳ [Network Retry Breather]: Retrying in {sleep_time:.1f}s... (Attempt {attempt}/{max_retries})")
+            server_delay = extract_retry_seconds(str(e))
+            if server_delay is not None and server_delay > 0:
+                safety_buffer = 1.0
+                sleep_time = server_delay + safety_buffer
+                print(f"⏳ [Server-Requested Retry Wait]: Server asked to wait {server_delay:.1f}s. Sleeping {sleep_time:.1f}s (+1.0s buffer)... (Attempt {attempt}/{max_retries})")
+            else:
+                jitter = random.uniform(0.2, 0.8)
+                sleep_time = min(delay + jitter, max_delay)
+                print(f"⏳ [Network Retry Breather]: Retrying in {sleep_time:.1f}s... (Attempt {attempt}/{max_retries})")
+            
             time.sleep(sleep_time)
             delay *= 2.0
 
