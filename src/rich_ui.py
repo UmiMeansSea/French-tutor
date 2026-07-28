@@ -126,10 +126,20 @@ def render_command_dashboard():
 
 def render_mentor_dialogue(parsed, mentor_style):
     theme = get_mentor_theme(mentor_style)
-    french_text = parsed.get("french_response", "")
-    feedback = parsed.get("mentor_feedback")
-    phonetics = parsed.get("phonetic_breakdown")
-    adaptation = parsed.get("internal_adaptation_level")
+    import json
+    if isinstance(parsed, str):
+        try:
+            parsed = json.loads(parsed)
+        except Exception:
+            parsed = {"french_response": parsed}
+
+    french_text = parsed.get("french_response", "") if isinstance(parsed, dict) else str(parsed)
+    if not french_text or not str(french_text).strip():
+        french_text = "Coucou ! Comment puis-je t'aider aujourd'hui ?"
+
+    feedback = parsed.get("mentor_feedback") if isinstance(parsed, dict) else None
+    phonetics = parsed.get("phonetic_breakdown") if isinstance(parsed, dict) else None
+    adaptation = parsed.get("internal_adaptation_level") if isinstance(parsed, dict) else None
 
     content_table = Table.grid(expand=True)
     content_table.add_column()

@@ -39,6 +39,49 @@ def get_active_ollama_model():
         pass
     return "llama3:latest"
 
+def normalize_tutor_response(tutor_reply):
+    if not tutor_reply or not str(tutor_reply).strip():
+        tutor_reply = "Coucou ! Comment ça va aujourd'hui ?"
+    
+    clean_text = str(tutor_reply).strip()
+    if clean_text.startswith("```json"):
+        clean_text = clean_text[7:]
+    if clean_text.startswith("```"):
+        clean_text = clean_text[3:]
+    if clean_text.endswith("```"):
+        clean_text = clean_text[:-3]
+    clean_text = clean_text.strip()
+
+    try:
+        data = json.loads(clean_text)
+        if isinstance(data, dict):
+            # Ensure french_response is non-empty
+            fr_text = data.get("french_response") or data.get("response") or data.get("french") or data.get("content")
+            if not fr_text or not str(fr_text).strip():
+                fr_text = clean_text
+            data["french_response"] = fr_text
+            if not data.get("internal_adaptation_level"):
+                data["internal_adaptation_level"] = "A1"
+            if "is_exit" not in data:
+                data["is_exit"] = False
+            if "new_vocabulary_introduced" not in data:
+                data["new_vocabulary_introduced"] = []
+            return json.dumps(data)
+    except Exception:
+        pass
+
+    # Fallback structure if model returned plain conversational text
+    structured = {
+        "french_response": clean_text,
+        "mentor_feedback": None,
+        "phonetic_breakdown": None,
+        "internal_adaptation_level": "A1",
+        "is_exit": False,
+        "new_vocabulary_introduced": [],
+        "diagnostics": None
+    }
+    return json.dumps(structured)
+
 class OllamaChatSession:
     def __init__(self, system_instruction, model_name=None):
         self.model_name = model_name or get_active_ollama_model()
@@ -61,8 +104,9 @@ class OllamaChatSession:
                 format="json"
             )
             tutor_reply = response['message']['content']
-            self.messages.append({"role": "assistant", "content": tutor_reply})
-            return tutor_reply
+            norm_reply = normalize_tutor_response(tutor_reply)
+            self.messages.append({"role": "assistant", "content": norm_reply})
+            return norm_reply
         except Exception as e:
             try:
                 # Fallback without explicit format="json" if model doesn't support structured JSON mode
@@ -71,8 +115,9 @@ class OllamaChatSession:
                     messages=self.messages
                 )
                 tutor_reply = response['message']['content']
-                self.messages.append({"role": "assistant", "content": tutor_reply})
-                return tutor_reply
+                norm_reply = normalize_tutor_response(tutor_reply)
+                self.messages.append({"role": "assistant", "content": norm_reply})
+                return norm_reply
             except Exception as inner_e:
                 fallback_resp = {
                     "french_response": "Désolé, Ollama rencontre un petit problème. Peux-tu me répéter ta phrase ?",
