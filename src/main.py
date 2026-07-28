@@ -14,6 +14,7 @@ from roleplay import select_roleplay_menu
 from gamification import add_xp, check_badges
 from stats import render_stat_chart, award_stat_xp, DEFAULT_STATS
 from memory_manager import extract_session_memories
+from mentor_manager import render_mentor_dossier
 
 def select_style_menu():
     print("\n--- Choose Your Chameleon Mentor Persona ---")
@@ -97,7 +98,7 @@ def main():
     print(f"Level {user_lvl} Traveler | XP: {xp} | Daily Streak: {milestone_streak} day(s) 🔥")
     if user_badges:
         print(f"Badges: {', '.join(user_badges)}")
-    print("Commands: /profile | /roleplay | /stats | /hangout | /speed | /voice | /shadow | /story | /milestones | /badges\n")
+    print("Commands: /call (voice mode) | /dossier (mentor notes) | /stats | /hangout | /roleplay | /shadow | /story | /milestones | /badges | /profile | /speed\n")
 
     session_metrics = {
         "total_turns": 0,
@@ -145,6 +146,16 @@ def main():
                 else:
                     current_speed = get_voice_speed(mentor_style)
                     print(f"\n[Speed Mode: Normal 🐇 (Profile pace at {current_speed})]\n")
+                continue
+
+            if user_input.strip().lower() in ['/call', '/voice']:
+                voice_mode = not voice_mode
+                status_str = "ON (Hands-Free Continuous VAD Mic Active 🎤)" if voice_mode else "OFF (Text Mode ⌨️)"
+                print(f"\n[Voice Mode Toggled: {status_str}]\n")
+                continue
+
+            if user_input.strip().lower() == '/dossier':
+                render_mentor_dossier(mentor_style, profile)
                 continue
 
             if user_input.strip().lower() == '/stats':
