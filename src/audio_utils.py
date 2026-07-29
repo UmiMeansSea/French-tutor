@@ -35,15 +35,20 @@ def speak_french(text, speed=1000, mentor_style="clara"):
     if not text or not str(text).strip():
         return
     
+    # Isolate TTS Audio: Strip markdown asterisks and formatting symbols before feeding to edge-tts
+    clean_text = str(text).replace("*", "").replace("#", "").replace("`", "").strip()
+    if not clean_text:
+        return
+    
     temp_file = os.path.abspath("temp_response.mp3")
     s_clean = str(mentor_style).lower()
     voice = "fr-FR-HenriNeural" if "derek" in s_clean or "coach" in s_clean else "fr-FR-DeniseNeural"
 
     try:
         if EDGE_TTS_AVAILABLE:
-            asyncio.run(_synthesize_edge_tts(text, voice, temp_file))
+            asyncio.run(_synthesize_edge_tts(clean_text, voice, temp_file))
         elif TTS_AVAILABLE:
-            tts = gTTS(text=text, lang='fr')
+            tts = gTTS(text=clean_text, lang='fr')
             tts.save(temp_file)
         else:
             return
@@ -68,28 +73,61 @@ def speak_french(text, speed=1000, mentor_style="clara"):
 
 import numpy as np
 
-def listen_to_mic(silence_threshold=2.0, sample_rate=16000, max_duration=30.0):
+def listen_to_mic(silence_threshold=3.0, sample_rate=16000, max_duration=30.0, prompt_first=True):
     if not VOICE_AVAILABLE:
         print("\n[Microphone Error: Voice input packages (sounddevice/SpeechRecognition) are missing.]")
         return ""
 
+    if prompt_first:
+        user_prompt_input = input("\n[Press ENTER when ready to speak 🎤, or type text directly]: ").strip()
+        if user_prompt_input:
+            return user_prompt_input
+
     temp_wav = os.path.abspath("temp_input.wav")
-    print("\n[Listening... 🎤 Speak clearly into your mic in French or English. Pause ~2s when finished]")
+    print("\n[Listening... 🎤 Speak clearly in French or English. Timeout: 15s | Pause limit: 20s]")
     
+    recognizer = sr.Recognizer()
+    recognizer.operation_timeout = 15.0
+    recognizer.pause_threshold = 2.0  # Give 2.0s pause breathing room
+
+    # Primary SpeechRecognition Microphone path
+    try:
+        with sr.Microphone() as source:
+            recognizer.adjust_for_ambient_noise(source, duration=1)
+            audio = recognizer.listen(source, timeout=15, phrase_time_limit=20)
+            text_fr = ""
+            text_en = ""
+            try:
+                text_fr = recognizer.recognize_google(audio, language="fr-FR").strip()
+            except Exception:
+                pass
+            try:
+                text_en = recognizer.recognize_google(audio, language="en-US").strip()
+            except Exception:
+                pass
+            
+            cmd_keywords = ["speed", "call", "dossier", "stats", "profile", "roleplay", "shadow", "story", "milestones", "badges", "hangout", "quit", "exit"]
+            if text_en.startswith("/") or any(kw in text_en.lower() for kw in cmd_keywords):
+                return text_en
+            if text_fr:
+                return text_fr
+            if text_en:
+                return text_en
+    except Exception:
+        pass
+
+    # Sounddevice fallback with extended thresholds
     audio_chunks = []
     silence_start = None
     start_time = time.time()
-    
-    # Adaptive noise floor tracking
     recent_rms_levels = []
-    SILENCE_RMS_THRESHOLD = 150  # Sensitive default threshold
+    SILENCE_RMS_THRESHOLD = 150
 
     def callback(indata, frames, time_info, status):
         nonlocal silence_start, SILENCE_RMS_THRESHOLD
         audio_chunks.append(indata.copy())
         rms = np.sqrt(np.mean(indata.astype(np.float32)**2))
         
-        # Track initial ambient noise to adapt threshold dynamically
         if len(recent_rms_levels) < 15:
             recent_rms_levels.append(rms)
             if len(recent_rms_levels) == 15:
@@ -107,7 +145,7 @@ def listen_to_mic(silence_threshold=2.0, sample_rate=16000, max_duration=30.0):
             while True:
                 time.sleep(0.1)
                 elapsed = time.time() - start_time
-                if silence_start and (time.time() - silence_start >= silence_threshold) and len(audio_chunks) > 5:
+                if silence_start and (time.time() - silence_start >= silence_threshold) and len(audio_chunks) > 10:
                     print("[Silence detected. Processing Speech... ⚡]")
                     break
                 if elapsed >= max_duration:
@@ -119,22 +157,17 @@ def listen_to_mic(silence_threshold=2.0, sample_rate=16000, max_duration=30.0):
 
         recording = np.concatenate(audio_chunks, axis=0)
 
-        # Gain Normalization: Boost low volume signals so faint mic input is clear
         max_val = np.max(np.abs(recording))
         if max_val > 50 and max_val < 18000:
             boost_factor = 22000.0 / float(max_val)
             recording = (recording.astype(np.float32) * boost_factor).clip(-32768, 32767).astype(np.int16)
 
-        # Save to WAV file
         with wave.open(temp_wav, 'wb') as wf:
             wf.setnchannels(1)
             wf.setsampwidth(2)
             wf.setframerate(sample_rate)
             wf.writeframes(recording.tobytes())
             
-        # Transcribe using SpeechRecognition
-        recognizer = sr.Recognizer()
-        recognizer.operation_timeout = 10.0
         with sr.AudioFile(temp_wav) as source:
             recognizer.adjust_for_ambient_noise(source, duration=1)
             audio = recognizer.record(source)
@@ -148,13 +181,11 @@ def listen_to_mic(silence_threshold=2.0, sample_rate=16000, max_duration=30.0):
         text_en = ""
         text_fr = ""
         
-        # Pass 1: French language recognition
         try:
             text_fr = recognizer.recognize_google(audio, language="fr-FR").strip()
         except Exception:
             pass
 
-        # Pass 2: English language recognition
         try:
             text_en = recognizer.recognize_google(audio, language="en-US").strip()
         except Exception:
