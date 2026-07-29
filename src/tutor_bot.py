@@ -9,13 +9,13 @@ from google.genai import types
 from google.genai.errors import APIError
 
 class TutorResponse(BaseModel):
-    french_response: str
-    mentor_feedback: Optional[str] = None
-    phonetic_breakdown: Optional[str] = None
-    internal_adaptation_level: str
-    is_exit: bool
-    new_vocabulary_introduced: list[str]
-    diagnostics: Optional[str] = None
+    french_response: str = Field(description="Main dialogue response from the mentor. For Clara, this includes her lively, code-switched French/English dialogue and inline A1 phrase breakdowns.")
+    mentor_feedback: Optional[str] = Field(default=None, description="Friendly coaching tips, grammar breakdowns, or American-French accent notes.")
+    phonetic_breakdown: Optional[str] = Field(default=None, description="Phonetics, liaisons, or pronunciation guide.")
+    internal_adaptation_level: str = Field(description="Current adapted CEFR level tag, e.g. A1, A2, B1.")
+    is_exit: bool = Field(default=False)
+    new_vocabulary_introduced: list[str] = Field(default_factory=list, description="List of new French terms or slang introduced in this turn.")
+    diagnostics: Optional[str] = Field(default=None)
 
 from mentor_manager import build_mentor_instructions
 
