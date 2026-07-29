@@ -35,8 +35,9 @@ def speak_french(text, speed=1000, mentor_style="clara"):
     if not text or not str(text).strip():
         return
     
-    # Isolate TTS Audio: Strip markdown asterisks and formatting symbols before feeding to edge-tts
-    clean_text = str(text).replace("*", "").replace("#", "").replace("`", "").strip()
+    # Isolate TTS Audio: Strip all markdown symbols (*, _, `, #, [], etc.) before feeding to edge-tts
+    import re
+    clean_text = re.sub(r'[\*\_`#\[\]]', '', str(text)).strip()
     if not clean_text:
         return
     
@@ -73,22 +74,26 @@ def speak_french(text, speed=1000, mentor_style="clara"):
 
 import numpy as np
 
-def listen_to_mic(silence_threshold=3.0, sample_rate=16000, max_duration=30.0, prompt_first=True):
+def listen_to_mic(silence_threshold=4.0, sample_rate=16000, max_duration=30.0, prompt_first=True):
     if not VOICE_AVAILABLE:
         print("\n[Microphone Error: Voice input packages (sounddevice/SpeechRecognition) are missing.]")
         return ""
 
     if prompt_first:
-        user_prompt_input = input("\n[Press ENTER when ready to speak 🎤, or type text directly]: ").strip()
-        if user_prompt_input:
-            return user_prompt_input
+        try:
+            user_prompt_input = input("\nPress [Enter] when ready to speak (or type message, [Ctrl+C] to cancel): ").strip()
+            if user_prompt_input:
+                return user_prompt_input
+        except KeyboardInterrupt:
+            print("\n[Turn Canceled 🛑. Resetting prompt...]\n")
+            return ""
 
     temp_wav = os.path.abspath("temp_input.wav")
     print("\n[Listening... 🎤 Speak clearly in French or English. Timeout: 15s | Pause limit: 20s]")
     
     recognizer = sr.Recognizer()
     recognizer.operation_timeout = 15.0
-    recognizer.pause_threshold = 2.0  # Give 2.0s pause breathing room
+    recognizer.pause_threshold = 4.0  # 4-second pause window before cutting off
 
     # Primary SpeechRecognition Microphone path
     try:
