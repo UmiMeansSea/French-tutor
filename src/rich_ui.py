@@ -178,11 +178,20 @@ def render_notepad_dashboard(notepad_rows):
 def render_mentor_dialogue(parsed, mentor_style):
     theme = get_mentor_theme(mentor_style)
     import json
+
     if isinstance(parsed, str):
+        cleaned = parsed.strip()
+        if cleaned.startswith("```json"):
+            cleaned = cleaned[7:]
+        elif cleaned.startswith("```"):
+            cleaned = cleaned[3:]
+        if cleaned.endswith("```"):
+            cleaned = cleaned[:-3]
+        cleaned = cleaned.strip()
         try:
-            parsed = json.loads(parsed)
+            parsed = json.loads(cleaned)
         except Exception:
-            parsed = {"french_response": parsed}
+            parsed = {"french_response": cleaned}
 
     french_text = parsed.get("french_response", "") if isinstance(parsed, dict) else str(parsed)
     if not french_text or not str(french_text).strip() or str(french_text).strip() in ["{}", "null"]:
@@ -208,10 +217,11 @@ def render_mentor_dialogue(parsed, mentor_style):
         )
         content_table.add_row(ph_panel)
 
-    # Coaching Feedback sub-block
-    if feedback:
+    # Dedicated Mentor Notes & Tips Panel
+    if feedback and str(feedback).strip():
         fb_panel = Panel(
-            f"[bold yellow]💡 Mentor Coaching Note:[/bold yellow]\n{feedback}",
+            f"[bold yellow]{feedback}[/bold yellow]",
+            title="[bold yellow]💡 Mentor Notes & Tips[/bold yellow]",
             border_style="yellow",
             box=box.ROUNDED,
             padding=(0, 1)

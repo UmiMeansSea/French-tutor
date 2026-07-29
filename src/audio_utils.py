@@ -136,6 +136,7 @@ def listen_to_mic(silence_threshold=2.0, sample_rate=16000, max_duration=30.0):
         recognizer = sr.Recognizer()
         recognizer.operation_timeout = 10.0
         with sr.AudioFile(temp_wav) as source:
+            recognizer.adjust_for_ambient_noise(source, duration=1)
             audio = recognizer.record(source)
             
         if os.path.exists(temp_wav):

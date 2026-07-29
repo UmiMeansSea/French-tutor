@@ -177,6 +177,18 @@ def process_notepad_tags(raw_text, user_input, mentor_name="Mentor"):
         pass
     return raw_text
 
+def clean_json_string(text):
+    if not text:
+        return ""
+    cleaned = str(text).strip()
+    if cleaned.startswith("```json"):
+        cleaned = cleaned[7:]
+    elif cleaned.startswith("```"):
+        cleaned = cleaned[3:]
+    if cleaned.endswith("```"):
+        cleaned = cleaned[:-3]
+    return cleaned.strip()
+
 def handle_user_message(user_input, client, chat, collection=None, mentor_name="Mentor"):
     # Sliding History Windowing: Strictly truncate history to last 6 messages to stay under TPM limits
     if hasattr(chat, "_history") and len(chat._history) > 6:
@@ -218,7 +230,8 @@ def handle_user_message(user_input, client, chat, collection=None, mentor_name="
         
     try:
         raw_res = retry_with_exponential_backoff(lambda: chat.send_message(augmented_message).text)
-        return process_notepad_tags(raw_res, user_input, mentor_name)
+        cleaned_res = clean_json_string(raw_res)
+        return process_notepad_tags(cleaned_res, user_input, mentor_name)
     except Exception:
         fallback_response = {
             "french_response": "Désolé, la connexion est un peu lente. Peux-tu me répéter ta phrase ?",

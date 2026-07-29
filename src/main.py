@@ -316,15 +316,25 @@ def main():
 
             try:
                 import json
-                parsed = json.loads(reply)
+                from tutor_bot import clean_json_string
+                cleaned_reply = clean_json_string(reply)
+                try:
+                    parsed = json.loads(cleaned_reply)
+                except Exception:
+                    parsed = {"french_response": cleaned_reply, "mentor_feedback": None}
+
                 french_resp = parsed.get('french_response', '')
                 diag = parsed.get('diagnostics')
                 
                 # Check for network timeout or API error fallbacks -> Skip XP rewards
                 if diag in ["NETWORK_TIMEOUT_RETRY", "API_TEMPORARY_LIMIT_BREATHER"]:
-                    print(f"\nTutor: {french_resp}")
-                    if parsed.get('mentor_feedback'):
-                        print(f"Feedback: {parsed['mentor_feedback']}\n")
+                    try:
+                        from rich_ui import render_mentor_dialogue
+                        render_mentor_dialogue(parsed, mentor_style)
+                    except Exception:
+                        print(f"\nTutor: {french_resp}")
+                        if parsed.get('mentor_feedback'):
+                            print(f"Feedback: {parsed['mentor_feedback']}\n")
                     continue
 
                 # SUCCESS: Award XP only after valid API turn response
