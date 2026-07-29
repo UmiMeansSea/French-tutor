@@ -178,20 +178,22 @@ def render_notepad_dashboard(notepad_rows):
 def render_mentor_dialogue(parsed, mentor_style):
     theme = get_mentor_theme(mentor_style)
     import json
+    import re
 
     if isinstance(parsed, str):
-        cleaned = parsed.strip()
-        if cleaned.startswith("```json"):
-            cleaned = cleaned[7:]
-        elif cleaned.startswith("```"):
-            cleaned = cleaned[3:]
-        if cleaned.endswith("```"):
-            cleaned = cleaned[:-3]
-        cleaned = cleaned.strip()
+        raw_str = str(parsed).strip()
+        cleaned = raw_str.replace("```json", "").replace("```", "").strip()
         try:
             parsed = json.loads(cleaned)
         except Exception:
-            parsed = {"french_response": cleaned}
+            match = re.search(r'\{.*\}', raw_str, re.DOTALL)
+            if match:
+                try:
+                    parsed = json.loads(match.group(0))
+                except Exception:
+                    parsed = {"french_response": cleaned}
+            else:
+                parsed = {"french_response": cleaned}
 
     french_text = parsed.get("french_response", "") if isinstance(parsed, dict) else str(parsed)
     if not french_text or not str(french_text).strip() or str(french_text).strip() in ["{}", "null"]:

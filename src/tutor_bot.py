@@ -189,6 +189,23 @@ def clean_json_string(text):
         cleaned = cleaned[:-3]
     return cleaned.strip()
 
+def parse_json_response(raw_text):
+    if not raw_text:
+        return {}
+    raw_str = str(raw_text).strip()
+    cleaned_text = raw_str.replace("```json", "").replace("```", "").strip()
+    try:
+        return json.loads(cleaned_text)
+    except Exception:
+        # Fallback: Extract JSON object using regex if text contains extra chatter
+        match = re.search(r'\{.*\}', raw_str, re.DOTALL)
+        if match:
+            try:
+                return json.loads(match.group(0))
+            except Exception:
+                pass
+    return {"french_response": cleaned_text, "mentor_feedback": None}
+
 def handle_user_message(user_input, client, chat, collection=None, mentor_name="Mentor"):
     # Sliding History Windowing: Strictly truncate history to last 6 messages to stay under TPM limits
     if hasattr(chat, "_history") and len(chat._history) > 6:

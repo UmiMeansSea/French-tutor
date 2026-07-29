@@ -315,13 +315,8 @@ def main():
                 reply = handle_user_message(user_input, client, chat, collection, mentor_name=mentor_style)
 
             try:
-                import json
-                from tutor_bot import clean_json_string
-                cleaned_reply = clean_json_string(reply)
-                try:
-                    parsed = json.loads(cleaned_reply)
-                except Exception:
-                    parsed = {"french_response": cleaned_reply, "mentor_feedback": None}
+                from tutor_bot import parse_json_response
+                parsed = parse_json_response(reply)
 
                 french_resp = parsed.get('french_response', '')
                 diag = parsed.get('diagnostics')
