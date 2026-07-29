@@ -10,7 +10,7 @@ from google.genai.errors import APIError
 
 class TutorResponse(BaseModel):
     french_response: str = Field(description="Main dialogue response from the mentor. For Clara, this includes her lively, code-switched French/English dialogue and inline A1 phrase breakdowns.")
-    mentor_feedback: Optional[str] = Field(default=None, description="Friendly coaching tips, grammar breakdowns, or American-French accent notes.")
+    mentor_feedback: Optional[str] = Field(default=None, description="Friendly coaching tips, English survival phrase French equivalents, grammar breakdowns, or accent notes.")
     phonetic_breakdown: Optional[str] = Field(default=None, description="Phonetics, liaisons, or pronunciation guide.")
     internal_adaptation_level: str = Field(description="Current adapted CEFR level tag, e.g. A1, A2, B1.")
     is_exit: bool = Field(default=False)
