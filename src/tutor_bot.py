@@ -2,20 +2,19 @@ import time
 import random
 import json
 import threading
-from pydantic import BaseModel, Field
-from typing import Optional
+import typing_extensions as typing
 from google import genai
 from google.genai import types
 from google.genai.errors import APIError
 
-class TutorResponse(BaseModel):
-    french_response: str = Field(description="Main dialogue response from the mentor. For Clara, this includes her lively, code-switched French/English dialogue and inline A1 phrase breakdowns.")
-    mentor_feedback: Optional[str] = Field(default=None, description="Friendly coaching tips, English survival phrase French equivalents, grammar breakdowns, or accent notes.")
-    phonetic_breakdown: Optional[str] = Field(default=None, description="Phonetics, liaisons, or pronunciation guide.")
-    internal_adaptation_level: str = Field(description="Current adapted CEFR level tag, e.g. A1, A2, B1.")
-    is_exit: bool = Field(default=False)
-    new_vocabulary_introduced: list[str] = Field(default_factory=list, description="List of new French terms or slang introduced in this turn.")
-    diagnostics: Optional[str] = Field(default=None)
+class TutorResponse(typing.TypedDict):
+    french_response: str
+    mentor_feedback: str
+    phonetic_breakdown: str
+    internal_adaptation_level: str
+    is_exit: bool
+    new_vocabulary_introduced: list[str]
+    diagnostics: str
 
 from mentor_manager import build_mentor_instructions
 
@@ -181,30 +180,24 @@ def clean_json_string(text):
     if not text:
         return ""
     cleaned = str(text).strip()
-    if cleaned.startswith("```json"):
-        cleaned = cleaned[7:]
-    elif cleaned.startswith("```"):
-        cleaned = cleaned[3:]
-    if cleaned.endswith("```"):
-        cleaned = cleaned[:-3]
-    return cleaned.strip()
+    cleaned = re.sub(r'^```(?:json|JSON)?', '', cleaned, flags=re.IGNORECASE).strip()
+    cleaned = re.sub(r'```$', '', cleaned).strip()
+    return cleaned
 
 def parse_json_response(raw_text):
     if not raw_text:
         return {}
-    raw_str = str(raw_text).strip()
-    cleaned_text = raw_str.replace("```json", "").replace("```", "").strip()
+    cleaned_text = clean_json_string(raw_text)
     try:
         return json.loads(cleaned_text)
-    except Exception:
-        # Fallback: Extract JSON object using regex if text contains extra chatter
-        match = re.search(r'\{.*\}', raw_str, re.DOTALL)
+    except (json.JSONDecodeError, Exception):
+        match = re.search(r'\{.*\}', cleaned_text, re.DOTALL)
         if match:
             try:
                 return json.loads(match.group(0))
-            except Exception:
+            except (json.JSONDecodeError, Exception):
                 pass
-    return {"french_response": cleaned_text, "mentor_feedback": None}
+    return {}
 
 def handle_user_message(user_input, client, chat, collection=None, mentor_name="Mentor"):
     # Sliding History Windowing: Strictly truncate history to last 6 messages to stay under TPM limits

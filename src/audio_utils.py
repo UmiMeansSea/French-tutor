@@ -2,15 +2,22 @@ import os
 import time
 import ctypes
 import wave
+import re
 
 VOICE_AVAILABLE = False
 TTS_AVAILABLE = False
+EDGE_TTS_AVAILABLE = False
 
 # Graceful import fallbacks
 try:
     import sounddevice as sd
     import speech_recognition as sr
+    from faster_whisper import WhisperModel
     VOICE_AVAILABLE = True
+    
+    # Load the ML model once globally for "antigravity" speed
+    # Using int8 quantization keeps it light on the CPU
+    whisper_model = WhisperModel("base", device="cpu", compute_type="int8")
 except ImportError:
     pass
 
@@ -36,7 +43,6 @@ def speak_french(text, speed=1000, mentor_style="clara"):
         return
     
     # Isolate TTS Audio: Strip all markdown symbols (*, _, `, #, [], etc.) before feeding to edge-tts
-    import re
     clean_text = re.sub(r'[\*\_`#\[\]]', '', str(text)).strip()
     if not clean_text:
         return
@@ -72,13 +78,13 @@ def speak_french(text, speed=1000, mentor_style="clara"):
         except Exception:
             pass
 
-import numpy as np
 
 def listen_to_mic(silence_threshold=4.0, sample_rate=16000, max_duration=30.0, prompt_first=True):
     if not VOICE_AVAILABLE:
-        print("\n[Microphone Error: Voice input packages (sounddevice/SpeechRecognition) are missing.]")
+        print("\n[Microphone Error: Voice input packages (faster-whisper/SpeechRecognition) are missing.]")
         return ""
 
+    # Allow typing override
     if prompt_first:
         try:
             user_prompt_input = input("\nPress [Enter] when ready to speak (or type message, [Ctrl+C] to cancel): ").strip()
@@ -93,119 +99,44 @@ def listen_to_mic(silence_threshold=4.0, sample_rate=16000, max_duration=30.0, p
     
     recognizer = sr.Recognizer()
     recognizer.operation_timeout = 15.0
-    recognizer.pause_threshold = 4.0  # 4-second pause window before cutting off
+    recognizer.pause_threshold = silence_threshold
 
-    # Primary SpeechRecognition Microphone path
     try:
-        with sr.Microphone() as source:
-            recognizer.adjust_for_ambient_noise(source, duration=1)
-            audio = recognizer.listen(source, timeout=15, phrase_time_limit=20)
-            text_fr = ""
-            text_en = ""
-            try:
-                text_fr = recognizer.recognize_google(audio, language="fr-FR").strip()
-            except Exception:
-                pass
-            try:
-                text_en = recognizer.recognize_google(audio, language="en-US").strip()
-            except Exception:
-                pass
+        with sr.Microphone(sample_rate=sample_rate) as source:
+            # Replaces the complex numpy RMS arrays by delegating to the recognizer's ambient noise calibration
+            recognizer.adjust_for_ambient_noise(source, duration=0.5)
+            audio = recognizer.listen(source, timeout=15, phrase_time_limit=max_duration)
+            print("[Silence detected. Processing Speech... ⚡]")
             
+            with open(temp_wav, "wb") as f:
+                f.write(audio.get_wav_data())
+                
+            # Transcribe seamlessly (Language auto-detection enabled)
+            segments, info = whisper_model.transcribe(temp_wav, beam_size=5)
+            transcription = " ".join([segment.text for segment in segments]).strip()
+            
+            if os.path.exists(temp_wav):
+                try:
+                    os.remove(temp_wav)
+                except Exception:
+                    pass
+                
+            if not transcription:
+                print("\n[Notice: Audio captured, but speech could not be recognized. Please speak slightly louder or closer to the mic.]")
+                return ""
+            
+            # Command Interception
+            # Whisper generates punctuation natively, so we strip it to ensure commands trigger correctly
             cmd_keywords = ["speed", "call", "dossier", "stats", "profile", "roleplay", "shadow", "story", "milestones", "badges", "hangout", "quit", "exit"]
-            if text_en.startswith("/") or any(kw in text_en.lower() for kw in cmd_keywords):
-                return text_en
-            if text_fr:
-                return text_fr
-            if text_en:
-                return text_en
-    except Exception:
-        pass
-
-    # Sounddevice fallback with extended thresholds
-    audio_chunks = []
-    silence_start = None
-    start_time = time.time()
-    recent_rms_levels = []
-    SILENCE_RMS_THRESHOLD = 150
-
-    def callback(indata, frames, time_info, status):
-        nonlocal silence_start, SILENCE_RMS_THRESHOLD
-        audio_chunks.append(indata.copy())
-        rms = np.sqrt(np.mean(indata.astype(np.float32)**2))
-        
-        if len(recent_rms_levels) < 15:
-            recent_rms_levels.append(rms)
-            if len(recent_rms_levels) == 15:
-                ambient_avg = np.mean(recent_rms_levels)
-                SILENCE_RMS_THRESHOLD = max(100.0, ambient_avg * 1.6)
-        
-        if rms < SILENCE_RMS_THRESHOLD:
-            if silence_start is None:
-                silence_start = time.time()
-        else:
-            silence_start = None
-
-    try:
-        with sd.InputStream(samplerate=sample_rate, channels=1, dtype='int16', callback=callback, blocksize=int(sample_rate * 0.2)):
-            while True:
-                time.sleep(0.1)
-                elapsed = time.time() - start_time
-                if silence_start and (time.time() - silence_start >= silence_threshold) and len(audio_chunks) > 10:
-                    print("[Silence detected. Processing Speech... ⚡]")
-                    break
-                if elapsed >= max_duration:
-                    print("[Max duration reached. Processing Speech... ⚡]")
-                    break
-
-        if not audio_chunks:
-            return ""
-
-        recording = np.concatenate(audio_chunks, axis=0)
-
-        max_val = np.max(np.abs(recording))
-        if max_val > 50 and max_val < 18000:
-            boost_factor = 22000.0 / float(max_val)
-            recording = (recording.astype(np.float32) * boost_factor).clip(-32768, 32767).astype(np.int16)
-
-        with wave.open(temp_wav, 'wb') as wf:
-            wf.setnchannels(1)
-            wf.setsampwidth(2)
-            wf.setframerate(sample_rate)
-            wf.writeframes(recording.tobytes())
+            transcription_lower = transcription.lower()
             
-        with sr.AudioFile(temp_wav) as source:
-            recognizer.adjust_for_ambient_noise(source, duration=1)
-            audio = recognizer.record(source)
-            
-        if os.path.exists(temp_wav):
-            try:
-                os.remove(temp_wav)
-            except Exception:
-                pass
-            
-        text_en = ""
-        text_fr = ""
-        
-        try:
-            text_fr = recognizer.recognize_google(audio, language="fr-FR").strip()
-        except Exception:
-            pass
+            if transcription_lower.startswith("/") or any(kw in transcription_lower for kw in cmd_keywords):
+                return re.sub(r'[^\w\s/]', '', transcription).strip()
+                
+            return transcription
 
-        try:
-            text_en = recognizer.recognize_google(audio, language="en-US").strip()
-        except Exception:
-            pass
-
-        cmd_keywords = ["speed", "call", "dossier", "stats", "profile", "roleplay", "shadow", "story", "milestones", "badges", "hangout", "quit", "exit"]
-        if text_en.startswith("/") or any(kw in text_en.lower() for kw in cmd_keywords):
-            return text_en
-        
-        if text_fr:
-            return text_fr
-        if text_en:
-            return text_en
-
-        print("\n[Notice: Audio captured, but speech could not be recognized. Please speak slightly louder or closer to the mic.]")
+    except sr.WaitTimeoutError:
+        print("\n[Listening timed out.]")
         return ""
     except Exception as e:
         print(f"\n[Microphone Error: {e}]")

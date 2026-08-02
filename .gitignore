@@ -18,6 +18,10 @@ venv/
 .venv/
 env/
 
+# Node Modules
+node_modules/
+dist/
+
 # IDEs
 .vscode/
 .idea/
