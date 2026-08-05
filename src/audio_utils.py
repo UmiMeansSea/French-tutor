@@ -34,12 +34,20 @@ try:
 except ImportError:
     pass
 
+VAD_AVAILABLE = False
 try:
-    import edge_tts
-    import asyncio
-    EDGE_TTS_AVAILABLE = True
-except ImportError:
-    EDGE_TTS_AVAILABLE = False
+    import webrtcvad
+    vad_detector = webrtcvad.Vad(3)  # Aggressiveness Level 3
+    VAD_AVAILABLE = True
+except (ImportError, Exception):
+    try:
+        from silero_vad import load_silero_vad, get_speech_timestamps
+        silero_model = load_silero_vad()
+        VAD_AVAILABLE = True
+        webrtcvad = None
+    except Exception:
+        VAD_AVAILABLE = False
+        webrtcvad = None
 
 async def _synthesize_edge_tts(text, voice, output_file):
     communicate = edge_tts.Communicate(text, voice)
@@ -117,13 +125,41 @@ def listen_to_mic(silence_threshold=4.0, sample_rate=16000, max_duration=30.0, p
             # Replaces the complex numpy RMS arrays by delegating to the recognizer's ambient noise calibration
             recognizer.adjust_for_ambient_noise(source, duration=0.5)
             audio = recognizer.listen(source, timeout=15, phrase_time_limit=max_duration)
-            print("[Silence detected. Processing Speech... ⚡]")
+            
+            raw_pcm = audio.get_raw_data(convert_rate=16000, convert_width=2)
+            
+            # Phase 1 Compute Frugality: Voice Activity Detection Frame Filtering
+            if VAD_AVAILABLE:
+                has_speech = False
+                if webrtcvad is not None:
+                    # webrtcvad requires 10, 20, or 30ms frames (at 16kHz 16-bit mono = 320, 640, 960 bytes)
+                    frame_size = 960
+                    speech_frames = 0
+                    for i in range(0, len(raw_pcm) - frame_size, frame_size):
+                        frame = raw_pcm[i:i + frame_size]
+                        if len(frame) == frame_size and vad_detector.is_speech(frame, 16000):
+                            speech_frames += 1
+                            if speech_frames >= 2:
+                                has_speech = True
+                                break
+                else:
+                    # Silero VAD fallback
+                    import torch
+                    audio_tensor = torch.from_numpy(np.frombuffer(raw_pcm, dtype=np.int16).astype(np.float32) / 32768.0)
+                    timestamps = get_speech_timestamps(audio_tensor, silero_model, sampling_rate=16000)
+                    has_speech = len(timestamps) > 0
+                
+                if not has_speech:
+                    print("\n[VAD Frugality 🔇: Silent/background noise frame dropped. Skipping Whisper CPU inference.]")
+                    return ""
+
+            print("[Speech detected via VAD. Processing Transcription... ⚡]")
             
             with open(temp_wav, "wb") as f:
                 f.write(audio.get_wav_data())
                 
             # Transcribe seamlessly (Language auto-detection enabled)
-            segments, info = whisper_model.transcribe(temp_wav, beam_size=5)
+            segments, info = whisper_model.transcribe(temp_wav, beam_size=3)
             transcription = " ".join([segment.text for segment in segments]).strip()
             
             if os.path.exists(temp_wav):

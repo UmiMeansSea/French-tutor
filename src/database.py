@@ -23,9 +23,16 @@ def init_sqlite_db():
             hometown TEXT DEFAULT '',
             profile_completed INTEGER DEFAULT 0,
             level TEXT DEFAULT 'A1',
+            active_session_summary TEXT DEFAULT '',
             last_active TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
+
+    # Schema migration check
+    cursor.execute("PRAGMA table_info(user_profile)")
+    cols = [row[1] for row in cursor.fetchall()]
+    if "active_session_summary" not in cols:
+        cursor.execute("ALTER TABLE user_profile ADD COLUMN active_session_summary TEXT DEFAULT ''")
 
     # Vocabulary Vault table
     cursor.execute("""
@@ -70,6 +77,23 @@ def get_user_profile_data():
             "level": row[3] or "A1"
         }
     return {"name": "Learner", "hometown": "", "profile_completed": False, "level": "A1"}
+
+def get_session_summary():
+    db_path = get_sqlite_path()
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    cursor.execute("SELECT active_session_summary FROM user_profile WHERE id = 1")
+    row = cursor.fetchone()
+    conn.close()
+    return row[0] if row and row[0] else ""
+
+def save_session_summary(summary):
+    db_path = get_sqlite_path()
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    cursor.execute("UPDATE user_profile SET active_session_summary = ? WHERE id = 1", (str(summary).strip(),))
+    conn.commit()
+    conn.close()
 
 def save_user_profile_data(name, hometown="", profile_completed=1):
     db_path = get_sqlite_path()

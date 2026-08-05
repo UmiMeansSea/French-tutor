@@ -199,17 +199,41 @@ def parse_json_response(raw_text):
                 pass
     return {}
 
+LAST_TURN_HAD_CORRECTION = False
+
+def requires_grammar_rag(user_input: str, last_turn_had_correction: bool = False) -> bool:
+    if last_turn_had_correction:
+        return True
+    if not user_input:
+        return False
+    
+    interrogative_keywords = [
+        "why", "how", "rule", "explain", "grammar", "conjugate",
+        "pourquoi", "comment", "règle", "expliquer", "grammaire", "conjuguer"
+    ]
+    u_lower = user_input.lower()
+    return any(kw in u_lower for kw in interrogative_keywords)
+
 def handle_user_message(user_input, client, chat, collection=None, mentor_name="Mentor"):
-    # Sliding History Windowing: Strictly truncate history to last 6 messages to stay under TPM limits
-    if hasattr(chat, "_history") and len(chat._history) > 6:
-        chat._history = chat._history[-6:]
-    elif hasattr(chat, "history") and len(chat.history) > 6:
-        chat.history = chat.history[-6:]
+    global LAST_TURN_HAD_CORRECTION
+    
+    # Phase 2 Token Frugality: Context Window Pruning & Summarization (MAX_ACTIVE_TURNS = 10)
+    MAX_ACTIVE_TURNS = 10
+    history = getattr(chat, "_history", None) or getattr(chat, "history", None)
+    if history and len(history) > MAX_ACTIVE_TURNS:
+        old_turns = history[:-MAX_ACTIVE_TURNS]
+        from memory_manager import summarize_old_turns_async
+        summarize_old_turns_async(client, chat, old_turns)
+        
+        if hasattr(chat, "_history"):
+            chat._history = chat._history[-MAX_ACTIVE_TURNS:]
+        elif hasattr(chat, "history"):
+            chat.history = chat.history[-MAX_ACTIVE_TURNS:]
 
     augmented_message = user_input
 
-    # Try RAG retrieval if collection is available
-    if collection:
+    # Phase 3 RAG Frugality: Lightweight Intent Routing
+    if collection and requires_grammar_rag(user_input, LAST_TURN_HAD_CORRECTION):
         try:
             embed_response = client.models.embed_content(
                 model="gemini-embedding-001", 
@@ -241,6 +265,14 @@ def handle_user_message(user_input, client, chat, collection=None, mentor_name="
     try:
         raw_res = retry_with_exponential_backoff(lambda: chat.send_message(augmented_message).text)
         cleaned_res = clean_json_string(raw_res)
+        
+        # Track diagnostics to know if previous turn had a correction
+        parsed = parse_json_response(cleaned_res)
+        if parsed and parsed.get('diagnostics') and parsed['diagnostics'] not in ['NETWORK_TIMEOUT_RETRY', 'API_TEMPORARY_LIMIT_BREATHER']:
+            LAST_TURN_HAD_CORRECTION = True
+        else:
+            LAST_TURN_HAD_CORRECTION = False
+
         return process_notepad_tags(cleaned_res, user_input, mentor_name)
     except Exception:
         fallback_response = {
