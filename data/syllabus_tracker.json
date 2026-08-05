@@ -1,151 +1,166 @@
 {
-  "A1": {
-    "title": "Beginner Foundations",
-    "modules": [
-      {
-        "id": "A1-M1",
-        "title": "Greetings & Introductions",
-        "topics": [
-          {
-            "id": "A1-M1-T1",
-            "name": "Basic Greetings & Politeness",
-            "grammar_target": "Bonjour, Salut, Merci, S'il vous plaît",
-            "tenses_unlocked": ["Présent de l'indicatif"],
-            "target_repetitions": 3
-          },
-          {
-            "id": "A1-M1-T2",
-            "name": "Introducing Yourself",
-            "grammar_target": "Je m'appelle, Je suis, J'habite à",
-            "tenses_unlocked": ["Présent de l'indicatif"],
-            "target_repetitions": 3
-          }
-        ]
-      },
-      {
-        "id": "A1-M2",
-        "title": "Essential Verbs & Nouns",
-        "topics": [
-          {
-            "id": "A1-M2-T1",
-            "name": "être and avoir",
-            "grammar_target": "Conjugation of être (to be) and avoir (to have)",
-            "tenses_unlocked": ["Présent de l'indicatif"],
-            "target_repetitions": 3
-          },
-          {
-            "id": "A1-M2-T2",
-            "name": "Articles & Gender Agreement",
-            "grammar_target": "le/la/les, un/une/des, adjectival gender agreement",
-            "tenses_unlocked": ["Présent de l'indicatif"],
-            "target_repetitions": 3
-          }
-        ]
+  "user_current_level": "A2",
+  "departments": {
+    "clara": {
+      "name": "Everyday Conversation & Pragmatics",
+      "active_level": "A2",
+      "bookmarked_revision": null,
+      "levels": {
+        "A1": {
+          "status": "completed",
+          "modules": [
+            {"id": "A1_M1", "topic": "Survival Basics (Greetings, Numbers, Food)", "status": "completed", "reps_required": 5, "reps_completed": 5}
+          ],
+          "assessment": {"id": "A1_ASSESS", "name": "Basic Coffee Chat", "status": "completed"}
+        },
+        "A2": {
+          "status": "in_progress",
+          "modules": [
+            {"id": "A2_M1", "topic": "Daily Routines, Hobbies, & Sports", "status": "in_progress", "reps_required": 5, "reps_completed": 2},
+            {"id": "A2_M2", "topic": "Navigating the City & Public Transit", "status": "not_started", "reps_required": 5, "reps_completed": 0},
+            {"id": "A2_M3", "topic": "Medical Appointments & Body Parts", "status": "not_started", "reps_required": 4, "reps_completed": 0}
+          ],
+          "assessment": {"id": "A2_ASSESS", "name": "Rapid-fire Coffee Chat", "status": "not_started"}
+        },
+        "B1": {
+          "status": "not_started",
+          "modules": [
+            {"id": "B1_M1", "topic": "Discussing Work, School, & Past Experiences", "status": "not_started", "reps_required": 5, "reps_completed": 0},
+            {"id": "B1_M2", "topic": "Expressing Feelings (Happiness, Regret, Surprise)", "status": "not_started", "reps_required": 5, "reps_completed": 0}
+          ],
+          "assessment": {"id": "B1_ASSESS", "name": "Intermediate Coffee Chat", "status": "not_started"}
+        },
+        "B2": {
+          "status": "not_started",
+          "modules": [
+            {"id": "B2_M1", "topic": "Defending Viewpoints & Debating Lifestyle", "status": "not_started", "reps_required": 6, "reps_completed": 0},
+            {"id": "B2_M2", "topic": "Professional Vocabulary in Meetings", "status": "not_started", "reps_required": 6, "reps_completed": 0}
+          ],
+          "assessment": {"id": "B2_ASSESS", "name": "Advanced Debate Coffee Chat", "status": "not_started"}
+        },
+        "C1": {
+          "status": "not_started",
+          "modules": [
+            {"id": "C1_M1", "topic": "Mastering Varied Registers (Humorous, Implicit)", "status": "not_started", "reps_required": 6, "reps_completed": 0}
+          ],
+          "assessment": {"id": "C1_ASSESS", "name": "Fluent Social Mixer", "status": "not_started"}
+        },
+        "C2": {
+          "status": "not_started",
+          "modules": [
+            {"id": "C2_M1", "topic": "Near-Native Sub-text, Irony, & Regional Slang", "status": "not_started", "reps_required": 8, "reps_completed": 0}
+          ],
+          "assessment": {"id": "C2_ASSESS", "name": "Native Integration Chat", "status": "not_started"}
+        }
       }
-    ]
-  },
-  "A2": {
-    "title": "Elementary Communication",
-    "modules": [
-      {
-        "id": "A2-M1",
-        "title": "Past Events & Daily Routines",
-        "topics": [
-          {
-            "id": "A2-M1-T1",
-            "name": "Passé Composé with avoir",
-            "grammar_target": "Past tense with avoir (j'ai parlé, j'ai mangé)",
-            "tenses_unlocked": ["Présent", "Passé Composé"],
-            "target_repetitions": 3
-          },
-          {
-            "id": "A2-M1-T2",
-            "name": "Passé Composé with être & Movement Verbs",
-            "grammar_target": "Movement verbs with être (je suis allé, elle est venue)",
-            "tenses_unlocked": ["Présent", "Passé Composé"],
-            "target_repetitions": 3
-          }
-        ]
+    },
+    "derek": {
+      "name": "Grammar & Structural Precision",
+      "active_level": "A2",
+      "bookmarked_revision": null,
+      "levels": {
+        "A1": {
+          "status": "completed",
+          "modules": [
+            {"id": "A1_M1", "topic": "Present Tense & Essential Verbs (être, avoir, aller, faire)", "status": "completed", "reps_required": 5, "reps_completed": 5}
+          ],
+          "assessment": {"id": "A1_ASSESS", "name": "Basic Syntax Test", "status": "completed"}
+        },
+        "A2": {
+          "status": "in_progress",
+          "modules": [
+            {"id": "A2_M1", "topic": "Passé Composé vs. Imparfait (Mechanics)", "status": "in_progress", "reps_required": 6, "reps_completed": 0},
+            {"id": "A2_M2", "topic": "Reflexive Verbs in the Past Tense", "status": "not_started", "reps_required": 5, "reps_completed": 0}
+          ],
+          "assessment": {"id": "A2_ASSESS", "name": "Red Pen Interview (Past Tense)", "status": "not_started"}
+        },
+        "B1": {
+          "status": "not_started",
+          "modules": [
+            {"id": "B1_M1", "topic": "Direct & Indirect Object Pronouns (COD/COI)", "status": "not_started", "reps_required": 6, "reps_completed": 0},
+            {"id": "B1_M2", "topic": "The Pronouns 'y' and 'en'", "status": "not_started", "reps_required": 6, "reps_completed": 0},
+            {"id": "B1_M3", "topic": "Futur Simple vs. Futur Proche", "status": "not_started", "reps_required": 5, "reps_completed": 0},
+            {"id": "B1_M4", "topic": "Present Conditional (Polite Requests)", "status": "not_started", "reps_required": 5, "reps_completed": 0}
+          ],
+          "assessment": {"id": "B1_ASSESS", "name": "Red Pen Interview (Pronouns & Conditionals)", "status": "not_started"}
+        },
+        "B2": {
+          "status": "not_started",
+          "modules": [
+            {"id": "B2_M1", "topic": "Passive Voice & Reported Speech", "status": "not_started", "reps_required": 6, "reps_completed": 0},
+            {"id": "B2_M2", "topic": "Structuring Paragraphs & Argumentative Connectors", "status": "not_started", "reps_required": 6, "reps_completed": 0}
+          ],
+          "assessment": {"id": "B2_ASSESS", "name": "Red Pen Interview (Complex Rhetoric)", "status": "not_started"}
+        },
+        "C1": {
+          "status": "not_started",
+          "modules": [
+            {"id": "C1_M1", "topic": "Mastering the Subjunctive Mood (Doubt, Emotion, Necessity)", "status": "not_started", "reps_required": 8, "reps_completed": 0}
+          ],
+          "assessment": {"id": "C1_ASSESS", "name": "Red Pen Interview (Subjunctive Mastery)", "status": "not_started"}
+        },
+        "C2": {
+          "status": "not_started",
+          "modules": [
+            {"id": "C2_M1", "topic": "Flawless Syntactic Control & Literary Tenses (Passé Simple)", "status": "not_started", "reps_required": 8, "reps_completed": 0}
+          ],
+          "assessment": {"id": "C2_ASSESS", "name": "Red Pen Interview (Academic Defense)", "status": "not_started"}
+        }
       }
-    ]
-  },
-  "B1": {
-    "title": "Intermediate Independence",
-    "modules": [
-      {
-        "id": "B1-M1",
-        "title": "Opinions, Expressing Wishes & Subjunctive",
-        "topics": [
-          {
-            "id": "B1-M1-T1",
-            "name": "Imparfait vs Passé Composé",
-            "grammar_target": "Background actions (imparfait) vs completed actions (passé composé)",
-            "tenses_unlocked": ["Présent", "Passé Composé", "Imparfait"],
-            "target_repetitions": 3
-          },
-          {
-            "id": "B1-M1-T2",
-            "name": "Subjonctif Présent & Necessity",
-            "grammar_target": "Il faut que + subjonctif (il faut que je fasse, il faut que tu viennes)",
-            "tenses_unlocked": ["Présent", "Passé Composé", "Imparfait", "Subjonctif Présent"],
-            "target_repetitions": 3
-          }
-        ]
+    },
+    "alice": {
+      "name": "Culture, Roleplay & Deep Reading",
+      "active_level": "A2",
+      "bookmarked_revision": null,
+      "levels": {
+        "A1": {
+          "status": "completed",
+          "modules": [
+            {"id": "A1_M1", "topic": "Airport & Directions Roleplay", "status": "completed", "reps_required": 3, "reps_completed": 3}
+          ],
+          "assessment": {"id": "A1_ASSESS", "name": "Tourist Roleplay", "status": "completed"}
+        },
+        "A2": {
+          "status": "in_progress",
+          "modules": [
+            {"id": "A2_M1", "topic": "Lost Luggage & Hotel Check-in Roleplay", "status": "in_progress", "reps_required": 4, "reps_completed": 0},
+            {"id": "A2_M2", "topic": "Tu vs. Vous & Formal Greetings", "status": "not_started", "reps_required": 4, "reps_completed": 0},
+            {"id": "A2_M3", "topic": "Writing Short Informal Emails", "status": "not_started", "reps_required": 3, "reps_completed": 0}
+          ],
+          "assessment": {"id": "A2_ASSESS", "name": "Etiquette Roleplay", "status": "not_started"}
+        },
+        "B1": {
+          "status": "not_started",
+          "modules": [
+            {"id": "B1_M1", "topic": "Reading Short Historical Texts", "status": "not_started", "reps_required": 4, "reps_completed": 0},
+            {"id": "B1_M2", "topic": "Workplace Conflict Roleplay", "status": "not_started", "reps_required": 4, "reps_completed": 0},
+            {"id": "B1_M3", "topic": "Discussing Movies & Expressing Agreement", "status": "not_started", "reps_required": 4, "reps_completed": 0}
+          ],
+          "assessment": {"id": "B1_ASSESS", "name": "Time Traveler Roleplay (1920s Cafe)", "status": "not_started"}
+        },
+        "B2": {
+          "status": "not_started",
+          "modules": [
+            {"id": "B2_M1", "topic": "Conducting Job Interviews & Negotiations", "status": "not_started", "reps_required": 5, "reps_completed": 0},
+            {"id": "B2_M2", "topic": "Reading & Analyzing Long Articles", "status": "not_started", "reps_required": 4, "reps_completed": 0}
+          ],
+          "assessment": {"id": "B2_ASSESS", "name": "Time Traveler Roleplay (Formal Negotiation)", "status": "not_started"}
+        },
+        "C1": {
+          "status": "not_started",
+          "modules": [
+            {"id": "C1_M1", "topic": "Themes in French Literature & Public Speaking", "status": "not_started", "reps_required": 5, "reps_completed": 0}
+          ],
+          "assessment": {"id": "C1_ASSESS", "name": "Time Traveler Roleplay (Philosophical Debate)", "status": "not_started"}
+        },
+        "C2": {
+          "status": "not_started",
+          "modules": [
+            {"id": "C2_M1", "topic": "Complex Literary Sources & Historical Treaty Negotiations", "status": "not_started", "reps_required": 6, "reps_completed": 0}
+          ],
+          "assessment": {"id": "C2_ASSESS", "name": "Time Traveler Roleplay (Historical Immersion)", "status": "not_started"}
+        }
       }
-    ]
-  },
-  "B2": {
-    "title": "Upper Intermediate Fluency",
-    "modules": [
-      {
-        "id": "B2-M1",
-        "title": "Complex Hypotheses & Conditionals",
-        "topics": [
-          {
-            "id": "B2-M1-T1",
-            "name": "Conditionnel Présent & Hypotheses (Si + imparfait)",
-            "grammar_target": "Si j'avais le temps, je voyagerais",
-            "tenses_unlocked": ["Présent", "Passé Composé", "Imparfait", "Subjonctif", "Conditionnel Présent"],
-            "target_repetitions": 3
-          }
-        ]
-      }
-    ]
-  },
-  "C1": {
-    "title": "Advanced Mastery",
-    "modules": [
-      {
-        "id": "C1-M1",
-        "title": "Formal Nuances & Inversion",
-        "topics": [
-          {
-            "id": "C1-M1-T1",
-            "name": "Formal Stylistic Inversion & Nuanced Conjunctions",
-            "grammar_target": "Inversion (Peut-être vient-il) & Conjunctions (Bien que, Quoique)",
-            "tenses_unlocked": ["All tenses including Passé Simple & Subjonctif Imparfait"],
-            "target_repetitions": 3
-          }
-        ]
-      }
-    ]
-  },
-  "C2": {
-    "title": "Native Mastery & Literary Nuance",
-    "modules": [
-      {
-        "id": "C2-M1",
-        "title": "Native Debate & Stylistic Polish",
-        "topics": [
-          {
-            "id": "C2-M1-T1",
-            "name": "Idiomatic Precision & Philosophical Argumentation",
-            "grammar_target": "Subtle stylistic registers, literary forms, native idioms",
-            "tenses_unlocked": ["Full Native Command"],
-            "target_repetitions": 3
-          }
-        ]
-      }
-    ]
+    }
   }
 }

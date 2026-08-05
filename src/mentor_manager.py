@@ -35,7 +35,7 @@ def build_mentor_instructions(user_level, mentor_style, user_memories=None, weak
     # Syllabus Prompt Injection
     syllabus_instruction = ""
     if syllabus_state:
-        rev = syllabus_state.get("revision_topic")
+        rev = syllabus_state.get("bookmarked_revision")
         if rev:
             syllabus_instruction = (
                 f"\n[SYLLABUS REVISION OVERRIDE 🔄]: The user requested an ad-hoc review of '{rev}'. "
@@ -54,16 +54,13 @@ def build_mentor_instructions(user_level, mentor_style, user_memories=None, weak
                 f"Conduct a comprehensive level-up evaluation testing previous grammar targets. Evaluate if the user is ready to promote to the next CEFR level."
             )
         else:
-            tenses = ", ".join(syllabus_state.get("tenses_unlocked", ["Présent"]))
-            reps = syllabus_state.get("repetition_count", 0)
-            target_reps = syllabus_state.get("target_repetitions", 3)
+            reps = syllabus_state.get("reps_completed", 0)
+            target_reps = syllabus_state.get("reps_required", 5)
             syllabus_instruction = (
-                f"\n[SYLLABUS STATE 🎯]: Module: {syllabus_state.get('module_title')} | "
+                f"\n[SYLLABUS STATE 🎯]: Department: {syllabus_state.get('department_name')} | "
                 f"Current Focus Topic: '{syllabus_state.get('topic_name')}' | "
-                f"Grammar Target: '{syllabus_state.get('grammar_target')}' | "
                 f"Progress: [{reps}/{target_reps} repetitions completed]. "
-                f"Unlocked Tenses: [{tenses}]. "
-                f"Ensure the user practices this target grammar. Naturally encourage them to repeat or apply it!"
+                f"Ensure the user practices this focus topic. Naturally encourage them to repeat or apply it!"
             )
 
     style_clean = mentor_style.lower()

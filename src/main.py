@@ -101,8 +101,8 @@ def main():
         profile = load_profile()
 
     # Load active Syllabus state
-    syllabus_state = get_current_syllabus_state(profile)
-    print(f"🎯 [SYLLABUS ACTIVE]: Level {syllabus_state['current_level']} | Focus Topic: '{syllabus_state['topic_name']}' ({syllabus_state['grammar_target']})")
+    syllabus_state = get_current_syllabus_state(profile, mentor_style)
+    print(f"🎯 [SYLLABUS ACTIVE]: Department: {syllabus_state['department_name']} | Level {syllabus_state['active_level']} | Module: '{syllabus_state['topic_name']}'")
 
     chat = create_chat(
         client, 
@@ -168,7 +168,7 @@ def main():
         if user_input.strip().lower() == '/profile':
             mentor_style = select_style_menu()
             save_profile(user_level, mentor_style, weak_spots=weak_spots, user_memories=user_memories)
-            syllabus_state = get_current_syllabus_state(profile)
+            syllabus_state = get_current_syllabus_state(profile, mentor_style)
             chat = update_chat_persona(client, user_level, mentor_style, weak_spots, user_memories, turtle_mode, user_name=user_db_profile["name"], user_hometown=user_db_profile["hometown"], syllabus_state=syllabus_state)
             current_speed = get_voice_speed(mentor_style) if not turtle_mode else 650
             try:
@@ -179,16 +179,15 @@ def main():
             continue
 
         if user_input.strip().lower() == '/syllabus':
-            syllabus_state = get_current_syllabus_state(profile)
-            print(f"\n--- 🎯 SYLLABUS ENGINE STATUS ---")
-            print(f"CEFR Level:       {syllabus_state['current_level']}")
-            print(f"Active Module:    {syllabus_state['module_title']} ({syllabus_state['module_id']})")
-            print(f"Active Topic:     {syllabus_state['topic_name']} ({syllabus_state['topic_id']})")
-            print(f"Grammar Target:   {syllabus_state['grammar_target']}")
-            print(f"Unlocked Tenses:  {', '.join(syllabus_state['tenses_unlocked'])}")
-            print(f"Mastery Reps:     {syllabus_state['repetition_count']} / {syllabus_state['target_repetitions']}")
-            if syllabus_state['revision_topic']:
-                print(f"Revision Focus:   {syllabus_state['revision_topic']} (Active ad-hoc override)")
+            syllabus_state = get_current_syllabus_state(profile, mentor_style)
+            print(f"\n--- 🎯 SYLLABUS ENGINE STATUS ({syllabus_state['department_key'].upper()}) ---")
+            print(f"Department:       {syllabus_state['department_name']}")
+            print(f"Active Level:     {syllabus_state['active_level']}")
+            print(f"Module ID:        {syllabus_state['module_id']}")
+            print(f"Active Topic:     {syllabus_state['topic_name']}")
+            print(f"Mastery Reps:     {syllabus_state['reps_completed']} / {syllabus_state['reps_required']}")
+            if syllabus_state['bookmarked_revision']:
+                print(f"Revision Focus:   {syllabus_state['bookmarked_revision']} (Active ad-hoc override)")
             print()
             continue
 
@@ -196,15 +195,15 @@ def main():
             parts = user_input.split(maxsplit=1)
             if len(parts) > 1:
                 rev_topic = parts[1].strip()
-                profile = set_revision_topic(profile, rev_topic)
+                profile = set_revision_topic(profile, mentor_style, rev_topic)
                 save_profile(user_level, mentor_style, weak_spots=weak_spots, user_memories=user_memories, syllabus_progress=profile.get("syllabus_progress"))
-                syllabus_state = get_current_syllabus_state(profile)
+                syllabus_state = get_current_syllabus_state(profile, mentor_style)
                 chat = update_chat_persona(client, user_level, mentor_style, weak_spots, user_memories, turtle_mode, user_name=user_db_profile["name"], user_hometown=user_db_profile["hometown"], syllabus_state=syllabus_state)
                 print(f"\n[Ad-Hoc Revision Activated 🔄]: Temporarily reviewing '{rev_topic}'. Current syllabus retained in background.\n")
             else:
-                profile = clear_revision_topic(profile)
+                profile = clear_revision_topic(profile, mentor_style)
                 save_profile(user_level, mentor_style, weak_spots=weak_spots, user_memories=user_memories, syllabus_progress=profile.get("syllabus_progress"))
-                syllabus_state = get_current_syllabus_state(profile)
+                syllabus_state = get_current_syllabus_state(profile, mentor_style)
                 chat = update_chat_persona(client, user_level, mentor_style, weak_spots, user_memories, turtle_mode, user_name=user_db_profile["name"], user_hometown=user_db_profile["hometown"], syllabus_state=syllabus_state)
                 print("\n[Ad-Hoc Revision Cleared ✅]: Resuming main syllabus progression.\n")
             continue
@@ -319,15 +318,15 @@ def main():
             
             # Check if user successfully used the target grammar without diagnostics error
             if not diag or "error" not in str(diag).lower():
-                profile, advanced, level_done = record_target_usage(profile)
+                profile, advanced, level_done = record_target_usage(profile, mentor_style)
                 if advanced:
-                    print("\n✨ [SYLLABUS PROGRESSION 🎯]: Mastery target reached! Advancing to next topic in syllabus.\n")
-                    syllabus_state = get_current_syllabus_state(profile)
+                    print("\n✨ [SYLLABUS PROGRESSION 🎯]: Mastery target reached for this module! Advancing syllabus.\n")
+                    syllabus_state = get_current_syllabus_state(profile, mentor_style)
                     chat = update_chat_persona(client, user_level, mentor_style, weak_spots, user_memories, turtle_mode, user_name=user_db_profile["name"], user_hometown=user_db_profile["hometown"], syllabus_state=syllabus_state)
                 if level_done:
                     print(f"\n🎓 [LEVEL-UP ASSESSMENT UNLOCKED]: You completed all modules for {user_level}! Entering Assessment Mode.\n")
                     # Check assessment pass condition: Promote level
-                    profile = promote_cefr_level(profile)
+                    profile = promote_cefr_level(profile, mentor_style)
                     user_level = profile.get("cefr_level", user_level)
 
             save_profile(user_level, mentor_style, weak_spots=weak_spots, user_memories=user_memories, syllabus_progress=profile.get("syllabus_progress"))
