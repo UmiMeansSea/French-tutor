@@ -57,41 +57,28 @@ def get_mentor_theme(mentor_style):
             "spinner": "bouncingBar"
         }
 
-def render_top_dashboard(user_level, mentor_style, profile, rpg_stats):
+def render_top_dashboard(user_level, mentor_style, profile, rpg_stats=None):
     theme = get_mentor_theme(mentor_style)
-    lvl = profile.get("level", 1)
-    xp = profile.get("xp", 0)
-    streak = profile.get("milestone_streak", 1)
-    badges = profile.get("badges", [])
-
-    # XP Progress bar calculation
-    xp_in_level = xp % 100
-    xp_bar = "█" * (xp_in_level // 10) + "░" * (10 - (xp_in_level // 10))
-
     grid = Table.grid(expand=True)
     grid.add_column(justify="left")
     grid.add_column(justify="right")
 
     left_text = (
-        f"[{theme['title_style']}]Active Mentor:[/{theme['title_style']}] {theme['avatar']}  •  "
-        f"[bold gold1]CEFR Target:[/bold gold1] [black on gold1] {user_level} [/black on gold1]\n"
-        f"[bold cyan]Traveler Level:[bold cyan] Lvl {lvl} [{xp_bar}] ({xp} Total XP)  •  "
-        f"[bold orange1]Daily Streak:[bold orange1] {streak} Days 🔥"
+        f"[{theme['title_style']}]Active Mentor:[/{theme['title_style']}] {theme['avatar']}\n"
+        f"[bold gold1]CEFR Target Level:[/bold gold1] [black on gold1] {user_level} [/black on gold1]"
     )
 
-    badge_str = " ".join([f"🏆 {b}" for b in badges]) if badges else "[dim]None yet[/dim]"
     right_text = (
-        f"[bold magenta]Badges:[bold magenta] {badge_str}\n"
-        f"🧠 {rpg_stats.get('Knowledge', 15)}  ✨ {rpg_stats.get('Charm', 15)}  "
-        f"⚡ {rpg_stats.get('Wit', 15)}  🦁 {rpg_stats.get('Courage', 15)}  💾 {rpg_stats.get('Memory', 15)}"
+        f"[bold cyan]Mode:[bold cyan] Conversational French Learning\n"
+        f"[dim white]Spaced Repetition & Memory Active[/dim white]"
     )
 
     grid.add_row(left_text, right_text)
 
     panel = Panel(
         grid,
-        title="[bold white]✨ LINGUAPHANTOM • EMPATHETIC AI FRENCH COACHING OS ✨[/bold white]",
-        subtitle=f"[dim]Session Active • Theme: {theme['name']}[/dim]",
+        title="[bold white]✨ EMPATHETIC AI FRENCH TUTOR OS ✨[/bold white]",
+        subtitle=f"[dim]Session Active • Persona: {theme['name']}[/dim]",
         border_style=theme["border_style"],
         box=box.ROUNDED,
         padding=(0, 1)
@@ -113,14 +100,11 @@ def render_command_dashboard():
     table.add_row("/call", "Toggle Hands-Free Continuous VAD Voice Call Mode", "🎙️ Audio / Voice")
     table.add_row("/vault", "Review Saved Vocabulary Words & Translations in SQLite", "📚 Vocabulary Vault")
     table.add_row("/notepad", "View Persistent Mentor Grammar & Vocabulary Corrections", "📝 Mentor Notepad")
-    table.add_row("/dossier", "View Active Mentor Notes, Perks & Improvement Targets", "📋 Mentor Dossier")
-    table.add_row("/stats", "Display RPG Persona Stat Chart & Synergy Multipliers", "📊 RPG Progression")
+    table.add_row("/dossier", "View Active Mentor Notes & Improvement Targets", "📋 Mentor Dossier")
     table.add_row("/hangout", "Launch Mentor-Specific Relaxed Hangout Session", "☕ Study Hangout")
     table.add_row("/roleplay", "Select Real-World Interactive Roleplay Scenario", "🎭 Simulation")
     table.add_row("/shadow", "Start Pronunciation & Liaison Echo Practice Drill", "🗣️ Audio Drill")
     table.add_row("/story", "Read Daily French Reading Passage & Answer Q&A", "📚 Comprehension")
-    table.add_row("/milestones", "Complete Daily 3-Step Micro-Goals & Update Streak", "🔥 Daily Streak")
-    table.add_row("/badges", "Showcase Unlocked Achievement Badges & XP", "🏆 Achievements")
     table.add_row("/profile", "Switch Active Mentor Persona (Clara, Derek, Alice)", "🔄 Persona Swap")
     table.add_row("/speed", "Toggle Turtle Mode 🐢 / Normal Pace 🐇", "🐢 Pacing Control")
 

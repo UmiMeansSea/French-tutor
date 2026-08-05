@@ -18,14 +18,14 @@ class TutorResponse(typing.TypedDict):
 
 from mentor_manager import build_mentor_instructions
 
-def get_system_instruction(user_level, mentor_style, weak_spots=None, user_memories=None, turtle_mode=False, user_name="Learner", user_hometown="", target_goal="", target_university="", target_city="", major="General", milestone_name="", milestone_date="", days_until_milestone=None):
-    return build_mentor_instructions(user_level, mentor_style, user_memories, weak_spots, turtle_mode, user_name, user_hometown, target_goal, target_university, target_city, major, milestone_name, milestone_date, days_until_milestone)
+def get_system_instruction(user_level, mentor_style, weak_spots=None, user_memories=None, turtle_mode=False, user_name="Learner", user_hometown=""):
+    return build_mentor_instructions(user_level, mentor_style, user_memories, weak_spots, turtle_mode, user_name, user_hometown)
 
 MODEL_NAME = "gemini-flash-latest"  # Efficient, high-limit Gemini Flash model
 
-def create_chat(client, user_level, mentor_style, weak_spots=None, user_memories=None, turtle_mode=False, user_name="Learner", user_hometown="", target_goal="", target_university="", target_city="", major="General", milestone_name="", milestone_date="", days_until_milestone=None):
+def create_chat(client, user_level, mentor_style, weak_spots=None, user_memories=None, turtle_mode=False, user_name="Learner", user_hometown=""):
     models_to_try = ["gemini-flash-latest", "gemini-flash-lite-latest", "gemini-2.0-flash"]
-    sys_inst = get_system_instruction(user_level, mentor_style, weak_spots, user_memories, turtle_mode, user_name, user_hometown, target_goal, target_university, target_city, major, milestone_name, milestone_date, days_until_milestone)
+    sys_inst = get_system_instruction(user_level, mentor_style, weak_spots, user_memories, turtle_mode, user_name, user_hometown)
     
     for m in models_to_try:
         try:
@@ -52,8 +52,8 @@ def create_chat(client, user_level, mentor_style, weak_spots=None, user_memories
         )
     )
 
-def update_chat_persona(client, user_level, mentor_style, weak_spots=None, user_memories=None, turtle_mode=False, user_name="Learner", user_hometown="", target_goal="", target_university="", target_city="", major="General", milestone_name="", milestone_date="", days_until_milestone=None):
-    return create_chat(client, user_level, mentor_style, weak_spots, user_memories, turtle_mode, user_name, user_hometown, target_goal, target_university, target_city, major, milestone_name, milestone_date, days_until_milestone)
+def update_chat_persona(client, user_level, mentor_style, weak_spots=None, user_memories=None, turtle_mode=False, user_name="Learner", user_hometown=""):
+    return create_chat(client, user_level, mentor_style, weak_spots, user_memories, turtle_mode, user_name, user_hometown)
 
 import re
 

@@ -71,30 +71,12 @@ def main():
     user_db_profile = get_user_profile_data()
 
     if not user_db_profile["profile_completed"]:
-        print("\n👋 [FIRST-TIME MENTOR WELCOME]: Bonjour ! Welcome to your French AI Tutor!")
+        print("\n👋 [WELCOME TO YOUR FRENCH AI TUTOR]: Bonjour !")
         u_name = input("What is your name?: ").strip() or "Learner"
-        u_town = input("Where are you from / what is your hometown?: ").strip() or "Home"
-        u_goal = input("What is your main goal? (e.g. Study abroad, DELF exam, Career, Travel): ").strip() or "Fluency"
-        u_uni = input("Which target university are you aiming for? (optional, e.g., Sorbonne University): ").strip() or ""
-        u_city = input("Which target French city are you aiming for? (e.g., Paris, Lyon): ").strip() or "Paris"
-        u_major = input("What is your major / field of study? (e.g., Computer Science, Business, Law): ").strip() or "General"
-        u_mname = input("Do you have an upcoming milestone? (optional, e.g. Visa Interview): ").strip() or ""
-        u_mdate = input("Milestone Target Date? (YYYY-MM-DD, optional): ").strip() or ""
-        save_user_profile_data(u_name, u_town, target_goal=u_goal, target_university=u_uni, target_city=u_city, major=u_major, milestone_name=u_mname, milestone_date=u_mdate, profile_completed=1)
+        u_town = input("Where are you from / hometown? (optional): ").strip() or ""
+        save_user_profile_data(u_name, u_town, profile_completed=1)
         user_db_profile = get_user_profile_data()
-        print(f"\n✨ Enchanté, {user_db_profile['name']} from {user_db_profile['hometown']}! Goal: {user_db_profile['target_goal']} | Major: {user_db_profile['major']}. Profile initialized!\n")
-    
-    # Milestone Countdown Check
-    import datetime
-    days_until_milestone = None
-    if user_db_profile.get("milestone_date"):
-        try:
-            m_dt = datetime.datetime.strptime(user_db_profile["milestone_date"], "%Y-%m-%d").date()
-            days_until_milestone = (m_dt - datetime.date.today()).days
-            if 0 <= days_until_milestone <= 7:
-                print(f"\n⏳ [URGENT MILESTONE ALERT]: '{user_db_profile['milestone_name']}' is in JUST {days_until_milestone} DAY(S)! Mentors shifting to intensive mock practice mode!\n")
-        except Exception:
-            pass
+        print(f"\n✨ Enchanté, {user_db_profile['name']}! Profile initialized!\n")
 
     # Initialize Chat Bot
     print("\nBonjour ! I am your empathetic French AI Mentor.")
@@ -105,15 +87,14 @@ def main():
     if profile:
         user_level = profile.get("cefr_level", "A2")
         mentor_style = profile.get("mentor_style", "Balanced")
-        print(f"Welcome back, {user_db_profile['name']}! Loading your saved profile... (Level: {user_level}, Style: {mentor_style})")
+        print(f"Welcome back, {user_db_profile['name']}! Loading saved profile... (Level: {user_level}, Persona: {mentor_style})")
         if weak_spots:
             print(f"Loaded Spaced Repetition Ledger: {len(weak_spots)} weak spot(s) active.")
         if user_memories.get("mastered_vocab"):
             print(f"Loaded Cross-Session Long-Term Memory: {len(user_memories.get('mastered_vocab', []))} fact(s) recalled.")
     else:
-        user_level = input("To get started, what is your current French level? (A1, A2, B1, B2, C1, or C2): ").strip().upper()
+        user_level = input("What is your target French level? (A1, A2, B1, B2, C1, or C2) [Default: A2]: ").strip().upper()
         if user_level not in ['A1', 'A2', 'B1', 'B2', 'C1', 'C2']:
-            print("Defaulting to A2.")
             user_level = 'A2'
             
         mentor_style = select_style_menu()
@@ -128,14 +109,7 @@ def main():
         weak_spots=weak_spots, 
         user_memories=user_memories,
         user_name=user_db_profile["name"],
-        user_hometown=user_db_profile["hometown"],
-        target_goal=user_db_profile["target_goal"],
-        target_university=user_db_profile["target_university"],
-        target_city=user_db_profile["target_city"],
-        major=user_db_profile["major"],
-        milestone_name=user_db_profile["milestone_name"],
-        milestone_date=user_db_profile["milestone_date"],
-        days_until_milestone=days_until_milestone
+        user_hometown=user_db_profile["hometown"]
     )
     
     # Prompt for Voice Mode
@@ -144,20 +118,18 @@ def main():
         voice_enable = input("Would you like to enable Voice Mode? (y/n): ").strip().lower()
         voice_mode = voice_enable == 'y'
     else:
-        print("\n[Voice Input (STT) is unavailable because speech_recognition or pyaudio is missing. Defaulting to typing mode.]")
+        print("\n[Voice Input (STT) is unavailable. Defaulting to typing mode.]")
     
-    milestone_streak = profile.get("milestone_streak", 0) if profile else 0
-    xp = profile.get("xp", 0) if profile else 0
-    user_lvl = profile.get("level", 1) if profile else 1
-    user_badges = profile.get("badges", []) if profile else []
-    rpg_stats = profile.get("rpg_stats", DEFAULT_STATS.copy()) if profile else DEFAULT_STATS.copy()
     current_speed = get_voice_speed(mentor_style)
     turtle_mode = False
     
     try:
         from rich_ui import render_top_dashboard, render_command_dashboard, render_mentor_dialogue, status_spinner
-        render_top_dashboard(user_level, mentor_style, profile or {}, rpg_stats)
+        render_top_dashboard(user_level, mentor_style, profile or {})
         render_command_dashboard()
+    except Exception:
+        print(f"\nAwesome! Your Chameleon Mentor is ready, locked in at {user_level} ({mentor_style}).")
+        print("Commands: /call (voice mode) | /dossier (mentor notes) | /hangout | /roleplay | /shadow | /story | /profile | /speed\n")
     except Exception:
         print(f"\nAwesome! Your Chameleon Mentor is ready, locked in at {user_level} ({mentor_style}).")
         print(f"Level {user_lvl} Traveler | XP: {xp} | Daily Streak: {milestone_streak} day(s) 🔥")
@@ -199,19 +171,19 @@ def main():
 
         if user_input.strip().lower() == '/profile':
             mentor_style = select_style_menu()
-            save_profile(user_level, mentor_style, milestone_streak, weak_spots, profile.get("xp", 0), profile.get("level", 1), profile.get("badges", []), rpg_stats, user_memories)
-            chat = update_chat_persona(client, user_level, mentor_style, weak_spots, user_memories, turtle_mode, user_name=user_db_profile["name"], user_hometown=user_db_profile["hometown"], target_goal=user_db_profile["target_goal"], target_university=user_db_profile["target_university"], target_city=user_db_profile["target_city"], major=user_db_profile["major"], milestone_name=user_db_profile["milestone_name"], milestone_date=user_db_profile["milestone_date"], days_until_milestone=days_until_milestone)
+            save_profile(user_level, mentor_style, 0, weak_spots, 0, 1, [], {}, user_memories)
+            chat = update_chat_persona(client, user_level, mentor_style, weak_spots, user_memories, turtle_mode, user_name=user_db_profile["name"], user_hometown=user_db_profile["hometown"])
             current_speed = get_voice_speed(mentor_style) if not turtle_mode else 650
             try:
                 from rich_ui import render_top_dashboard
-                render_top_dashboard(user_level, mentor_style, profile or {}, rpg_stats)
+                render_top_dashboard(user_level, mentor_style, profile or {})
             except Exception:
                 print(f"\n[Mentor style updated dynamically to: {mentor_style}]\n")
             continue
 
         if user_input.strip().lower() == '/speed':
             turtle_mode = not turtle_mode
-            chat = update_chat_persona(client, user_level, mentor_style, weak_spots, user_memories, turtle_mode, user_name=user_db_profile["name"], user_hometown=user_db_profile["hometown"], target_goal=user_db_profile["target_goal"], target_university=user_db_profile["target_university"], target_city=user_db_profile["target_city"], major=user_db_profile["major"], milestone_name=user_db_profile["milestone_name"], milestone_date=user_db_profile["milestone_date"], days_until_milestone=days_until_milestone)
+            chat = update_chat_persona(client, user_level, mentor_style, weak_spots, user_memories, turtle_mode, user_name=user_db_profile["name"], user_hometown=user_db_profile["hometown"])
             if turtle_mode:
                 print("\n[Pacing Mode: Turtle 🐢 (Deliberate, slow, clear pacing injected into system prompt)]\n")
             else:
@@ -238,10 +210,6 @@ def main():
             render_vault_dashboard(vault_rows)
             continue
 
-        if user_input.strip().lower() == '/stats':
-            render_stat_chart(rpg_stats, mentor_style)
-            continue
-
         if user_input.strip().lower() == '/hangout':
             m_clean = mentor_style.lower()
             if "derek" in m_clean or "coach" in m_clean:
@@ -253,53 +221,18 @@ def main():
             else:
                 print("\n[Launching Clara's Hangout Session: Indie Record Store & Park Bench 🎧]")
                 user_input = "Let's hang out on a park bench, listen to some French indie music, and chat casually."
-            session_metrics["roleplay_completed"] = True
-            profile = add_xp(profile or {}, 50, f"Hangout Session with {mentor_style}")
-            rpg_stats, _ = award_stat_xp(rpg_stats, "Charm", 15, mentor_style)
-            save_profile(user_level, mentor_style, milestone_streak, weak_spots, profile.get("xp", 0), profile.get("level", 1), profile.get("badges", []), rpg_stats)
 
-        pending_xp_award = None
         if user_input.strip().lower() == '/roleplay':
             scenario = select_roleplay_menu()
             user_input = scenario["prompt"]
-            session_metrics["roleplay_completed"] = True
-            pending_xp_award = (50, f"Roleplay: {scenario['title']}", "Courage", 15)
-
-        if user_input.strip().lower() == '/badges':
-            print(f"\n--- Player Achievement Showcase ---")
-            print(f"Level: {profile.get('level', 1)} | XP: {profile.get('xp', 0)}")
-            print(f"Badges Unlocked ({len(profile.get('badges', []))}):")
-            if not profile.get('badges'):
-                print(" - None unlocked yet. Complete challenges to earn badges!")
-            else:
-                for b in profile.get('badges', []):
-                    print(f" 🏆 {b}")
-            print()
-            continue
 
         if user_input.strip().lower() == '/shadow':
             user_input = "Please give me 1 native French sentence with proper liaisons for me to shadow and repeat back."
-            session_metrics["shadow_completed"] = True
-            pending_xp_award = (50, "Shadowing Drill", "Wit", 15)
             print("\n[Starting Interactive Shadowing Drill...]\n")
 
         if user_input.strip().lower() == '/story':
             user_input = f"Please read me a short 3-sentence story in French appropriate for my level ({user_level}), and ask me 2 simple questions."
-            pending_xp_award = (40, "Daily Story Reading", "Knowledge", 15)
             print("\n[Starting Daily Reading Session...]\n")
-
-        if user_input.strip().lower() == '/milestones':
-            print(f"\n--- Daily Micro-Milestones (Streak: {milestone_streak} Days 🔥) ---")
-            print("1. [x] Core Lesson / Reading Comprehension")
-            print("2. [x] Pronunciation & Blending Drill")
-            print("3. [x] Shadowing & Conversation Challenge")
-            milestone_streak += 1
-            profile = add_xp(profile or {}, 100, "Daily Milestone Completed")
-            rpg_stats, _ = award_stat_xp(rpg_stats, "Knowledge", 10, mentor_style)
-            rpg_stats, _ = award_stat_xp(rpg_stats, "Wit", 10, mentor_style)
-            save_profile(user_level, mentor_style, milestone_streak, weak_spots, profile.get("xp", 0), profile.get("level", 1), profile.get("badges", []), rpg_stats)
-            print(f"Awesome job! Milestone completed! Streak updated to {milestone_streak} days!\n")
-            continue
 
         # Speed Adaptation check
         slow_triggers = ["too fast", "slow down", "je ne comprends pas", "plus lentement"]
@@ -349,23 +282,14 @@ def main():
                         print(f"Feedback: {mentor_feedback}\n")
                 continue
 
-            # SUCCESS: Award XP only after valid API turn response
+            # SUCCESS: Log turn metrics
             session_metrics["total_turns"] += 1
-            profile = add_xp(profile or {}, 15, "Conversation Turn")
-            rpg_stats, _ = award_stat_xp(rpg_stats, "Charm", 5, mentor_style)
-
-            if pending_xp_award:
-                xp_amt, xp_reason, stat_name, stat_amt = pending_xp_award
-                profile = add_xp(profile or {}, xp_amt, xp_reason)
-                rpg_stats, _ = award_stat_xp(rpg_stats, stat_name, stat_amt, mentor_style)
-
-            profile, _ = check_badges(profile or {}, session_metrics)
-            save_profile(user_level, mentor_style, milestone_streak, weak_spots, profile.get("xp", 0), profile.get("level", 1), profile.get("badges", []), rpg_stats)
+            save_profile(user_level, mentor_style, weak_spots=weak_spots, user_memories=user_memories)
             
             # Sync SQLite persistent storage
             try:
                 from database import sync_sqlite_profile, save_vault_word
-                sync_sqlite_profile(user_level, profile.get("xp", 0), milestone_streak)
+                sync_sqlite_profile(user_level)
                 if parsed.get('new_vocabulary_introduced'):
                     for vocab in parsed['new_vocabulary_introduced']:
                         save_vault_word(vocab, translation=french_resp[:40], cefr_level=user_level)
@@ -399,13 +323,12 @@ def main():
             if diag:
                 session_metrics["diagnostics_flagged"].append(diag)
                 weak_spots.append(diag)
-                rpg_stats, _ = award_stat_xp(rpg_stats, "Memory", 10, mentor_style)
-                save_profile(user_level, mentor_style, milestone_streak, weak_spots, profile.get("xp", 0), profile.get("level", 1), profile.get("badges", []), rpg_stats)
+                save_profile(user_level, mentor_style, weak_spots=weak_spots, user_memories=user_memories)
             
             if parsed.get('is_exit'):
                 profile = extract_session_memories(session_metrics, profile or {})
                 user_memories = profile.get("user_memories", {})
-                save_profile(user_level, mentor_style, milestone_streak, weak_spots, profile.get("xp", 0), profile.get("level", 1), profile.get("badges", []), rpg_stats, user_memories)
+                save_profile(user_level, mentor_style, weak_spots=weak_spots, user_memories=user_memories)
                 
                 db_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "db")
                 os.makedirs(db_dir, exist_ok=True)
@@ -416,9 +339,7 @@ def main():
                 print("\n╔════════════════════════════════════════════════════════════╗")
                 print("║               🎓 POST-SESSION SUMMARY CARD 🎓               ║")
                 print("╠════════════════════════════════════════════════════════════╣")
-                print(f"║ 🎭 Mentor Synergy:       {mentor_style}")
-                print(f"║ 👤 Player Level:          Level {profile.get('level', 1)} ({profile.get('xp', 0)} XP)")
-                print(f"║ 🔥 Current Streak:        {milestone_streak} Day(s)")
+                print(f"║ 🎭 Mentor Persona:       {mentor_style}")
                 print(f"║ 💬 Conversational Turns:  {session_metrics['total_turns']}")
                 v_str = ', '.join(session_metrics['vocabulary_learned']) if session_metrics['vocabulary_learned'] else 'None'
                 if len(v_str) > 35: v_str = v_str[:32] + "..."
@@ -428,9 +349,6 @@ def main():
                 print(f"║ 🎯 Recorded Weak Spots:   {w_str}")
                 m_cnt = len(user_memories.get('mastered_vocab', []))
                 print(f"║ 🧠 Long-Term Memories:    {m_cnt} Fact(s) Retained")
-                b_str = ', '.join(profile.get("badges", [])) if profile.get("badges") else 'None yet'
-                if len(b_str) > 35: b_str = b_str[:32] + "..."
-                print(f"║ 🏆 Badges Unlocked:       {b_str}")
                 print("╚════════════════════════════════════════════════════════════╝\n")
                 break
         except Exception as e:
