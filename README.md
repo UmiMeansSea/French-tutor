@@ -1,114 +1,379 @@
-# 🇫🇷 French AI Tutor & Cultural Mentor (Work in Progress)
+# 🇫🇷 Linguaphantom — Your AI French Tutor & Cultural Mentor
 
-> *“A project by a student, for students who want to learn French with a free, friendly companion while actively mastering the language.”* — **Umi**
+> *"A project by a student, for students who want to learn French with a free, friendly AI companion while actively mastering the language."* — **Umi**
 
----
-
-##  Introduction
-
-Welcome! I’m **Umi**, and I built this project because learning a language shouldn't feel like staring at a rigid, expensive textbook. If you want a casual space to chat about your day, practice your conversational skills, or get corrected gently without feeling judged, this is for you.
-
-Think of this project as your personal, free AI friend who happens to be a bilingual French native. It hangs out with you, listens to your day, subtly tracks your progress behind the scenes, and helps you grow naturally—all while keeping things fun and stress-free.
-
-*Note: This project is a **work in progress**, and I’m constantly tinkering with it to make the experience smoother and smarter!*
+[![Python](https://img.shields.io/badge/Python-3.10%2B-blue?logo=python)](https://python.org)
+[![Gemini](https://img.shields.io/badge/Primary%20LLM-Gemini%202.0%20Flash-blue?logo=google)](https://ai.google.dev)
+[![Groq](https://img.shields.io/badge/Fallback%20LLM-Groq%20Llama%2070B-orange?logo=groq)](https://groq.com)
+[![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
 
 ---
 
-## How It Works
+## 🎯 What Is Linguaphantom?
 
-If you are just here to use the tool or see what it does, here is how the magic happens in everyday language:
+**Linguaphantom** is a fully voice-enabled, CLI-based French AI tutor that learns your weaknesses, follows a structured CEFR syllabus, and corrects your grammar the way a real teacher would — not by giving you a red mark, but by *guiding you through it conversationally*.
 
-1. **Your Profile & Vibe:** When you first start the app, it asks for your current French level (from beginner **A1** to advanced **C2**) and how you want your mentor to act. It saves this info locally so you don't have to set it up every time.
-2. **Just Chat Naturally:** You can talk to your mentor in French just like you would with a real friend.
-3. **The English Bridge:** Don't know how to say a specific phrase in French? Just type it in English! The mentor instantly translates your thought into natural French and explains the new vocabulary in a side note.
-4. **Subtle Corrections (No Boring Tests):** Instead of giving you stressful quizzes, the AI watches your grammar and patterns in the background. If it notices you making the same mistake a few times, it casually drops a helpful memory trick or a polite native alternative in the feedback section.
-5. **Cultural Tidbits:** As you chat, your mentor tosses in fun real-life tips, texting slang, and social rules used by actual locals in France.
-6. **Smart Exit:** Whenever you're done, just say *“au revoir”* or *“bye”*. The mentor says a warm goodbye, wraps up the session, and saves a summary report of your progress.
+You get three distinct AI mentors, each with their own personality and specialty:
+
+| Mentor | Specialty | Persona |
+|--------|-----------|---------|
+| 🗣️ **Clara** | Everyday Conversation & Pragmatics | Warm, bubbly American-French expat. Code-switches naturally. Encouraging and relatable. |
+| 📚 **Derek** | Grammar & Structural Precision | Sharp, meticulous Quebecois professor. Strict but fair. No grammar error escapes him. |
+| 🎨 **Alice** | Culture, Literature & Roleplay | Eccentric, passionate Parisian intellectual. Weaves history, art, and storytelling into every lesson. |
 
 ---
 
-##  Technical Deep Dive (For Developers & Advanced Users)
+## ✨ Key Features
 
-If you want to look under the hood and understand how the code architecture is built, here is a detailed breakdown of the internal systems, modules, and data flow:
+### 🎤 Voice-First Interaction
+- Full speech-to-text input via microphone using **SpeechRecognition** + `faster-whisper`
+- AI voice responses via **gTTS** (Google Text-to-Speech)
+- Voice Activity Detection (VAD) via **WebRTC VAD** to filter silence and background noise — only real speech reaches the AI, saving CPU cycles
+- Local TTS filler audio plays while waiting for API responses (no awkward silence)
 
-### Project Directory Structure
+### 🏫 Structured CEFR Syllabus Engine
+- Three departments (Clara / Derek / Alice), each with a full A1→C2 curriculum spanning 30+ modules
+- **Spaced repetition** tracking: every topic has `reps_required` and `reps_completed` counters
+- Automatic CEFR level promotion when a level's modules and assessment are all completed
+- Syllabus state is injected dynamically into system prompts — the mentor always stays on topic
+- Slash commands: `/syllabus`, `/review` to view and navigate your progress at any time
 
-```text
-french_ai_tutor/
-├── data/
-│   └── knowledge_docs/         # Drop .txt or .md grammar/vocabulary rules here
-├── db/
-│   ├── chroma_db/              # Persistent local vector database storage
-│   └── user_profile.json       # Auto-saved user settings and history
+### 🥪 The Sandwich Protocol (Error Correction)
+Every grammar mistake is corrected using a proven pedagogical method:
+1. The mentor pauses the conversation
+2. **`mentor_feedback`** (English): A 1-2 sentence explanation of the error
+3. **`french_response`** (French): The corrected sentence, with a prompt to repeat it
+4. The conversation only advances once the student confirms the correction
+
+### 🧠 Sliding Window Memory (Token Frugality)
+- Hard cap of **10 active conversation turns** in context at all times
+- Older turns are asynchronously summarized by the LLM and compressed into a compact memory blob
+- Prevents runaway token consumption on long sessions
+
+### 🔁 Dual-Model Fallback Router (`llm_router.py`)
+Production-grade high-availability routing:
+```
+Gemini 2.0 Flash (Primary) → Groq Llama 3.3-70B (Fallback) → Hardcoded Failsafe
+```
+- Gemini failures (429 quota, 500 errors, network timeout) trigger **instant Groq handoff** — no retry loops
+- Groq errors (HTTP 400 decommissioned, 429 TPM rate limit) trigger exponential backoff then **hardcoded French failsafe JSON**
+- The frontend/parser **never receives a null response**
+
+### 🔍 RAG-Augmented Grammar Engine
+- Local **ChromaDB** vector store for grammar rules (`data/knowledge_docs/`)
+- Auto-ingests any `.txt` or `.md` files you drop into the knowledge folder
+- Lightweight intent routing: only queries the RAG store when the user asks a grammar/rule question
+- Cosine distance threshold filters low-confidence results to prevent hallucinations
+
+### 📓 Anki Export & Session Notepad
+- Every grammar error automatically saved to `tutor_data.db` with: original text, corrected text, rule, and category
+- Critical Exit Protocol: on `"au revoir"` or `"exit"`, the mentor generates an Anki-formatted summary of 2-3 key phrases from the session
+- Slash command: `/dossier` to review your error history at any time
+
+### 🧪 Automated QA Suite (`qa_student.py`)
+- **96 test cases** (32 per mentor) covering grammar corrections, phonetic forgiveness, topic hijacking, English refusal, cultural knowledge, and roleplay
+- **Dual-model LLM-as-a-Judge**: Mentor responses generated by `llama-3.3-70b-versatile`, graded independently by `llama-3.1-8b-instant`
+- Generates a full `qa_report_v2.md` Markdown report with per-test verdicts, latencies, word counts, and mentor leaderboard win rates
+
+---
+
+## 🗂️ Project Structure
+
+```
+french-ai-tutor/
+│
 ├── src/
-│   ├── __init__.py
-│   ├── database.py             # ChromaDB connection, auto-ingestion, & distance thresholding
-│   ├── user_profile.py         # Persistent profile & session analytics management
-│   ├── tutor_bot.py            # Gemini 3.5 Flash logic, Pydantic schemas, & sliding window memory
-│   └── main.py                 # Interactive CLI loop & graceful exit handler
-├── requirements.txt            # Project dependencies
-└── README.md                   # Project documentation
-
+│   ├── main.py               # CLI entry point, session loop, slash commands
+│   ├── tutor_bot.py          # LLM call orchestration, JSON parsing, RAG augmentation
+│   ├── llm_router.py         # Dual-model fallback router (Gemini → Groq → Failsafe)
+│   ├── mentor_manager.py     # System prompt builder for all three mentors
+│   ├── syllabus_engine.py    # CEFR syllabus state machine (progression, reps, assessments)
+│   ├── memory_manager.py     # Sliding window context pruning & async summarization
+│   ├── audio_utils.py        # VAD, microphone capture, Whisper transcription, TTS playback
+│   ├── database.py           # SQLite + ChromaDB, RAG ingestion, notepad entry saving
+│   ├── user_profile.py       # Profile load/save (CEFR level, mentor, weak spots, memories)
+│   └── rich_ui.py            # Rich terminal UI (panels, tables, status displays)
+│
+├── data/
+│   └── knowledge_docs/       # Drop .txt/.md grammar rules here for RAG ingestion
+│       └── syllabus_tracker.json  # Live CEFR syllabus state (progress, reps, levels)
+│
+├── db/
+│   ├── chroma_db/            # Persistent ChromaDB vector store
+│   └── user_profile.json     # Saved user profile (auto-generated on first run)
+│
+├── qa_student.py             # Automated QA test suite (96 tests, LLM-as-a-Judge)
+├── qa_report_v2.md           # Latest QA run report (auto-generated)
+├── tutor_data.db             # SQLite database (notepad entries, session history)
+├── requirements.txt          # Python dependencies
+└── README.md                 # This file
 ```
-
-### Core Functional Modules & Mechanics
-
-1. **`user_profile.py` (Persistent State & Analytics):**
-* **Persistence Layer:** Manages reading and writing to `db/user_profile.json`, ensuring the user's CEFR level (`A1`-`C2`), preferred mentor persona style, and historical tracking persist across application restarts.
-* **Session Analytics Engine:** Tracks live metrics during runtime (total conversational turns, bridge translations provided, pattern diagnostics) and compiles them into a structured `session_summary.json` output upon exit.
-
-
-2. **`database.py` (Advanced RAG & Automated Ingestion):**
-* **Auto-Ingestion Watcher:** Scans the `data/knowledge_docs/` directory upon initialization, parsing any new text or markdown grammar documents, chunking them, and embedding them without duplicating pre-existing records.
-* **Vector Search & Distance Thresholding:** Leverages a local **ChromaDB** vector store instance (`db/chroma_db/`) to fetch top-K relevant contextual chunks (`n_results=2`) while discarding results that fail mathematical distance thresholds, effectively mitigating model hallucinations.
-
-
-3. **`tutor_bot.py` (Gemini 3.5 Flash & Structured Output Engine):**
-* **Chamberlain / Chameleon System Instructions:** Dynamically injects the user's profile state and historical patterns into the system prompt. It configures Gemini to balance bilingual explanations (English for clarity, native French markers for immersion).
-* **Sliding Window Memory:** Manages context token consumption by maintaining a sliding truncation window of the last 5–6 conversation turns.
-* **Pydantic Structured Parsing:** Enforces strict JSON schema validation on the LLM output using Pydantic, ensuring type-safe extraction of:
-* `french_response` (`str`): The primary conversational reply in French or bridge translation.
-* `mentor_feedback` (`Optional[str]`): Contextual side-notes containing pattern diagnostics, memory mnemonics for chronic errors, pragmatic politeness tips, and cultural tidbits.
-* `internal_adaptation_level` (`str`): Implicit metric tracking adjustments to linguistic complexity for subsequent turns.
-* `is_exit` (`bool`): Boolean flag tripped when conversational closing cues (`au revoir`, `bye`, etc.) are detected.
-
-
-
-
-4. **`main.py` (The Interactive Execution Loop):**
-* Initializes the application components, triggers the proactive startup greeting, routes user inputs through the inference pipeline, prints structured CLI feedback blocks, and catches the `is_exit` signal to safely terminate the runtime loop.
-
-
 
 ---
 
-## 📦 Setup & Installation
+## 🚀 Quick Start
 
-1. **Clone the Repository:**
+### Prerequisites
+- **Python 3.10+**
+- A **Google Gemini API key** (free tier works) → [Get one here](https://aistudio.google.com/app/apikey)
+- A **Groq API key** (free tier, 14,400 RPD) → [Get one here](https://console.groq.com/keys)
+- A working microphone (for voice mode)
+
+---
+
+### 1. Clone the Repository
+
 ```bash
-cd french_ai_tutor
-
+git clone https://github.com/UmiMeansSea/French-tutor.git
+cd French-tutor
 ```
 
+### 2. Create a Virtual Environment
 
-2. **Install Dependencies:**
-Make sure you have Python 3.10+ installed, then install the required packages:
 ```bash
-pip install google-genai chromadb pydantic openpyxl weasyprint pypdf
+# Windows
+python -m venv .venv
+.venv\Scripts\activate
 
+# macOS / Linux
+python -m venv .venv
+source .venv/bin/activate
 ```
 
+### 3. Install Dependencies
 
-3. **Configure API Key:**
-Set your Google Gemini API key as an environment variable:
 ```bash
-export GEMINI_API_KEY="your-api-key-here"
-
+pip install -r requirements.txt
 ```
 
+> **Windows users**: If `sounddevice` or `webrtcvad` fail to install, run:
+> ```bash
+> pip install pipwin
+> pipwin install pyaudio
+> ```
 
-4. **Run the Application:**
+### 4. Configure Your API Keys
+
+Create a `.env` file in the project root:
+
+```env
+# Primary LLM (Google Gemini)
+GEMINI_API_KEY=your_gemini_api_key_here
+PRIMARY_API_KEY=your_gemini_api_key_here
+
+# Fallback LLM (Groq — used automatically if Gemini quota is exceeded)
+GROQ_API_KEY=your_groq_api_key_here
+
+# Optional: Hugging Face token (for model downloads)
+HF_TOKEN=your_hf_token_here
+```
+
+> ⚠️ **Never commit your `.env` file.** It is already in `.gitignore`.
+
+### 5. Run the Application
+
 ```bash
 python src/main.py
+```
+
+On first run, you will be prompted to set up your profile (name, CEFR level, preferred mentor). This is saved automatically and skipped on subsequent runs.
+
+---
+
+## 🖥️ Usage Guide
+
+### Starting a Session
+
+```bash
+python src/main.py
+```
+
+The application will:
+1. Load your saved profile (or prompt for setup on first run)
+2. Greet you in the voice of your active mentor
+3. Enter the conversation loop — speak or type to interact
+
+---
+
+### Voice vs. Text Mode
+
+| Mode | How to trigger |
+|------|---------------|
+| **Voice input** | Press `Enter` to begin recording, speak, then pause to submit |
+| **Text input** | Type your message directly and press `Enter` |
+
+---
+
+### Slash Commands
+
+Use these at any time during a session:
+
+| Command | Description |
+|---------|-------------|
+| `/syllabus` | Display your current CEFR syllabus progress across all three departments |
+| `/review` | Activate Spaced Repetition review mode for previously completed modules |
+| `/profile` | Show your saved learner profile (level, mentor, weak spots) |
+| `/dossier` | Open your error notepad — all grammar corrections logged this session |
+| `/switch [clara\|derek\|alice]` | Switch your active mentor mid-session |
+| `/exit` or `au revoir` | End the session gracefully (triggers Anki export summary) |
+
+---
+
+### Choosing Your Mentor
+
+You can switch mentors at any time:
 
 ```
+/switch derek
+```
+
+Or set your default in `db/user_profile.json`:
+```json
+{
+  "cefr_level": "A2",
+  "mentor_style": "Clara",
+  "weak_spots": ["gender agreement", "passé composé"],
+  "user_memories": {},
+  "syllabus_progress": {}
+}
+```
+
+---
+
+## 🧪 Running the QA Test Suite
+
+The automated QA suite runs 96 pedagogical tests across all three mentors using the **Dual-Model LLM-as-a-Judge** system:
+
+```bash
+python qa_student.py
+```
+
+This will:
+1. Run 32 test cases per mentor (Clara, Derek, Alice)
+2. Generate each mentor response via **Groq Llama 3.3-70B** (mentor engine)
+3. Grade each response via **Groq Llama 3.1-8B** (judge engine)
+4. Save the full report to `qa_report_v2.md`
+
+The report includes:
+- ✅ / ❌ Pass/Fail verdict per test
+- LLM Judge reasoning (1 sentence per test)
+- Response latency, word count
+- Mentor leaderboard with win rate %
+
+**Expected runtime**: ~10-15 minutes for the full 96-test suite (rate limit buffers included).
+
+---
+
+## ⚙️ Architecture Overview
+
+```
+User Input (Voice/Text)
+        │
+        ▼
+  audio_utils.py        ← VAD filter → Whisper transcription
+        │
+        ▼
+   tutor_bot.py         ← Context pruning (10-turn window) + RAG augmentation
+        │
+        ▼
+   llm_router.py        ← Fallback routing engine
+   ┌────┴────────────────────────────────────┐
+   │  Route 1: Gemini 2.0 Flash (12s timeout)│
+   │  Route 2: Groq Llama 3.3-70B (fallback) │
+   │  Route 3: Hardcoded Failsafe JSON       │
+   └─────────────────────────────────────────┘
+        │
+        ▼
+  mentor_manager.py     ← Dynamic system prompt with syllabus state
+        │
+        ▼
+  syllabus_engine.py    ← Reps tracking, CEFR promotion, assessment gating
+        │
+        ▼
+    JSON Response
+  { french_response, mentor_feedback, is_exit }
+        │
+        ▼
+   rich_ui.py + audio_utils.py  ← Display + TTS playback
+        │
+        ▼
+   database.py          ← Save notepad entries, update syllabus progress
+```
+
+---
+
+## 🔐 Environment Variables Reference
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `PRIMARY_API_KEY` | ✅ | Google Gemini API key (primary LLM) |
+| `GEMINI_API_KEY` | ✅ | Same as above (legacy alias) |
+| `GROQ_API_KEY` | ✅ | Groq API key (fallback LLM + QA Judge) |
+| `HF_TOKEN` | ❌ | Hugging Face token (optional, for model downloads) |
+
+For **Railway deployment**, set these as environment variables in your Railway project dashboard — never hardcode them.
+
+---
+
+## 🛠️ Adding Grammar Knowledge Documents
+
+Drop any `.txt` or `.md` file into `data/knowledge_docs/`. On next startup, the RAG engine auto-ingests it:
+
+```
+data/knowledge_docs/
+├── passe_compose_rules.md
+├── subjunctive_triggers.txt
+└── french_prepositions.md
+```
+
+The tutor will automatically reference these documents when students ask grammar questions.
+
+---
+
+## 📋 Dependencies
+
+```
+google-genai       # Gemini 2.0 Flash API client
+groq               # Groq LPU API client (Llama 70B/8B)
+chromadb           # Local vector database for RAG
+python-dotenv      # .env file loading
+gTTS               # Text-to-speech for mentor voice
+SpeechRecognition  # Microphone input transcription
+sounddevice        # Audio playback
+webrtcvad          # Voice Activity Detection
+faster-whisper     # Local speech-to-text (Whisper model)
+rich               # Beautiful terminal UI
+```
+
+Install all at once:
+```bash
+pip install -r requirements.txt
+```
+
+---
+
+## 🤝 Contributing
+
+This project is actively developed. Pull requests and issues are welcome!
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/my-feature`
+3. Commit your changes: `git commit -m "feat: Add my feature"`
+4. Push to the branch: `git push origin feature/my-feature`
+5. Open a Pull Request
+
+---
+
+## 📄 License
+
+This project is open source under the [MIT License](LICENSE).
+
+---
+
+<div align="center">
+
+Built with ❤️ by **Umi** — *learning French, one conversation at a time.*
+
+[⭐ Star this repo](https://github.com/UmiMeansSea/French-tutor) • [🐛 Report a Bug](https://github.com/UmiMeansSea/French-tutor/issues) • [💡 Request a Feature](https://github.com/UmiMeansSea/French-tutor/issues)
+
+</div>
