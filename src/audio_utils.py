@@ -10,6 +10,13 @@ EDGE_TTS_AVAILABLE = False
 
 # Graceful import fallbacks
 try:
+    try:
+        import pyaudio
+    except ImportError:
+        import pyaudiowpatch as pyaudio
+        import sys
+        sys.modules['pyaudio'] = pyaudio
+
     import sounddevice as sd
     import speech_recognition as sr
     from faster_whisper import WhisperModel
@@ -18,8 +25,8 @@ try:
     # Load the ML model once globally for "antigravity" speed
     # Using int8 quantization keeps it light on the CPU
     whisper_model = WhisperModel("base", device="cpu", compute_type="int8")
-except ImportError:
-    pass
+except Exception as e:
+    VOICE_AVAILABLE = False
 
 try:
     from gtts import gTTS
