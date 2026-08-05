@@ -45,19 +45,9 @@ async def _synthesize_edge_tts(text, voice, output_file):
     communicate = edge_tts.Communicate(text, voice)
     await communicate.save(output_file)
 
-def speak_french(text, speed=1000, mentor_style="clara"):
-    if not text or not str(text).strip():
-        return
-    
-    # Isolate TTS Audio: Strip all markdown symbols (*, _, `, #, [], etc.) before feeding to edge-tts
-    clean_text = re.sub(r'[\*\_`#\[\]]', '', str(text)).strip()
-    if not clean_text:
-        return
-    
-    temp_file = os.path.abspath("temp_response.mp3")
-    s_clean = str(mentor_style).lower()
-    voice = "fr-FR-HenriNeural" if "derek" in s_clean or "coach" in s_clean else "fr-FR-DeniseNeural"
+import threading
 
+def _play_tts_async(clean_text, voice, temp_file):
     try:
         if EDGE_TTS_AVAILABLE:
             asyncio.run(_synthesize_edge_tts(clean_text, voice, temp_file))
@@ -73,17 +63,31 @@ def speak_french(text, speed=1000, mentor_style="clara"):
         winmm.mciSendStringW('close mymp3', None, 0, 0)
         
         time.sleep(0.1)  # Release file handle lock
-        
         if os.path.exists(temp_file):
             os.remove(temp_file)
     except Exception:
-        # Suppress TTS errors to ensure conversation loop continues
         try:
             ctypes.windll.winmm.mciSendStringW('close mymp3', None, 0, 0)
             if os.path.exists(temp_file):
                 os.remove(temp_file)
         except Exception:
             pass
+
+def speak_french(text, speed=1000, mentor_style="clara"):
+    if not text or not str(text).strip():
+        return
+    
+    clean_text = re.sub(r'[\*\_`#\[\]]', '', str(text)).strip()
+    if not clean_text:
+        return
+    
+    temp_file = os.path.abspath(f"temp_resp_{int(time.time() * 1000)}.mp3")
+    s_clean = str(mentor_style).lower()
+    voice = "fr-FR-HenriNeural" if "derek" in s_clean or "coach" in s_clean else "fr-FR-DeniseNeural"
+
+    # Launch background thread so UI/input loop is not blocked during audio playback
+    t = threading.Thread(target=_play_tts_async, args=(clean_text, voice, temp_file), daemon=True)
+    t.start()
 
 
 def listen_to_mic(silence_threshold=4.0, sample_rate=16000, max_duration=30.0, prompt_first=True):

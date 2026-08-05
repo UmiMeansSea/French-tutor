@@ -21,10 +21,10 @@ from mentor_manager import build_mentor_instructions
 def get_system_instruction(user_level, mentor_style, weak_spots=None, user_memories=None, turtle_mode=False, user_name="Learner", user_hometown=""):
     return build_mentor_instructions(user_level, mentor_style, user_memories, weak_spots, turtle_mode, user_name, user_hometown)
 
-MODEL_NAME = "gemini-flash-latest"  # Efficient, high-limit Gemini Flash model
+MODEL_NAME = "gemini-2.5-flash"  # Ultra-fast, highly intelligent Gemini 2.5 Flash model
 
 def create_chat(client, user_level, mentor_style, weak_spots=None, user_memories=None, turtle_mode=False, user_name="Learner", user_hometown=""):
-    models_to_try = ["gemini-flash-latest", "gemini-flash-lite-latest", "gemini-2.0-flash"]
+    models_to_try = ["gemini-2.5-flash", "gemini-flash-latest", "gemini-2.0-flash"]
     sys_inst = get_system_instruction(user_level, mentor_style, weak_spots, user_memories, turtle_mode, user_name, user_hometown)
     
     for m in models_to_try:
@@ -33,7 +33,7 @@ def create_chat(client, user_level, mentor_style, weak_spots=None, user_memories
                 model=m,
                 config=types.GenerateContentConfig(
                     system_instruction=sys_inst,
-                    temperature=0.7,
+                    temperature=0.4,
                     response_mime_type="application/json",
                     response_schema=TutorResponse
                 )
@@ -225,7 +225,7 @@ def handle_user_message(user_input, client, chat, collection=None, mentor_name="
             valid_rules = []
             if results['documents'] and results['distances']:
                 for i, distance in enumerate(results['distances'][0]):
-                    if distance <= 1.2:
+                    if distance <= 0.85:
                         valid_rules.append(results['documents'][0][i])
             
             if valid_rules:
