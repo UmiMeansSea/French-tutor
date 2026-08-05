@@ -21,10 +21,10 @@ from mentor_manager import build_mentor_instructions
 def get_system_instruction(user_level, mentor_style, weak_spots=None, user_memories=None, turtle_mode=False, user_name="Learner", user_hometown=""):
     return build_mentor_instructions(user_level, mentor_style, user_memories, weak_spots, turtle_mode, user_name, user_hometown)
 
-MODEL_NAME = "gemini-2.5-flash"  # Ultra-fast, highly intelligent Gemini 2.5 Flash model
+MODEL_NAME = "gemini-2.0-flash"  # Latest production Gemini Flash model
 
 def create_chat(client, user_level, mentor_style, weak_spots=None, user_memories=None, turtle_mode=False, user_name="Learner", user_hometown=""):
-    models_to_try = ["gemini-2.5-flash", "gemini-flash-latest", "gemini-2.0-flash"]
+    models_to_try = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-flash-latest"]
     sys_inst = get_system_instruction(user_level, mentor_style, weak_spots, user_memories, turtle_mode, user_name, user_hometown)
     
     for m in models_to_try:
@@ -40,13 +40,13 @@ def create_chat(client, user_level, mentor_style, weak_spots=None, user_memories
             )
         except Exception:
             continue
-            
+
     # Final attempt fallback
     return client.chats.create(
-        model="gemini-flash-latest",
+        model="gemini-2.0-flash",
         config=types.GenerateContentConfig(
             system_instruction=sys_inst,
-            temperature=0.7,
+            temperature=0.4,
             response_mime_type="application/json",
             response_schema=TutorResponse
         )
