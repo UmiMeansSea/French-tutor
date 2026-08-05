@@ -274,42 +274,6 @@ def render_rich_dossier(mentor_style, user_profile=None):
     )
     console.print(panel)
 
-def render_rich_stat_chart(stats, active_mentor="Clara"):
-    theme = get_mentor_theme(active_mentor)
-    if not stats:
-        stats = {"Knowledge": 15, "Charm": 15, "Wit": 15, "Courage": 15, "Memory": 15}
-
-    table = Table(box=box.ROUNDED, border_style=theme["border_style"], expand=True)
-    table.add_column("Stat", style="bold white", width=16)
-    table.add_column("Level Bar", style="cyan")
-    table.add_column("Level", style="bold yellow", justify="center", width=8)
-    table.add_column("Points", style="bold green", justify="right", width=10)
-
-    stat_icons = {
-        "Knowledge": "🧠 Knowledge",
-        "Charm":     "✨ Charm",
-        "Wit":       "⚡ Wit",
-        "Courage":   "🦁 Courage",
-        "Memory":    "💾 Memory"
-    }
-
-    for stat, val in stats.items():
-        lvl = (val // 20) + 1
-        progress_in_lvl = (val % 20) / 20.0
-        filled = int(progress_in_lvl * 12)
-        bar = "█" * filled + "░" * (12 - filled)
-        icon = stat_icons.get(stat, stat)
-        table.add_row(icon, f"[magenta]{bar}[/magenta]", f"Lvl {lvl}", f"{val} PTS")
-
-    panel = Panel(
-        table,
-        title=f"[{theme['title_style']}] 📊 RPG PERSONA STAT CHART • Synergy: {active_mentor} [/{theme['title_style']}]",
-        border_style=theme["border_style"],
-        box=box.ROUNDED,
-        padding=(0, 1)
-    )
-    console.print(panel)
-
 def status_spinner(text, mentor_style="clara"):
     theme = get_mentor_theme(mentor_style)
     return console.status(f"[{theme['title_style']}]{text}[/{theme['title_style']}]", spinner=theme["spinner"])

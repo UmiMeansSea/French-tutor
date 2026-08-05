@@ -3,6 +3,15 @@ import json
 
 PROFILE_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "db", "user_profile.json")
 
+DEFAULT_SYLLABUS_PROGRESS = {
+    "current_level": "A1",
+    "current_module_index": 0,
+    "current_topic_index": 0,
+    "repetition_count": 0,
+    "target_repetitions": 3,
+    "revision_topic": None
+}
+
 def load_profile():
     if not os.path.exists(PROFILE_PATH):
         return None
@@ -13,22 +22,18 @@ def load_profile():
         print(f"Error loading profile: {e}")
         return None
 
-def save_profile(cefr_level, mentor_style, milestone_streak=0, weak_spots=None, xp=0, level=1, badges=None, rpg_stats=None, user_memories=None):
+def save_profile(cefr_level, mentor_style, weak_spots=None, user_memories=None, syllabus_progress=None):
     if weak_spots is None:
         weak_spots = []
-    if badges is None:
-        badges = []
     existing = load_profile() or {}
     existing["cefr_level"] = cefr_level
     existing["mentor_style"] = mentor_style
-    existing["milestone_streak"] = milestone_streak
-    existing["xp"] = max(existing.get("xp", 0), xp)
-    existing["level"] = max(existing.get("level", 1), level)
-    existing["badges"] = list(set(existing.get("badges", []) + badges))
-    if rpg_stats:
-        existing["rpg_stats"] = rpg_stats
-    if user_memories:
+    if user_memories is not None:
         existing["user_memories"] = user_memories
+    if syllabus_progress is not None:
+        existing["syllabus_progress"] = syllabus_progress
+    elif "syllabus_progress" not in existing:
+        existing["syllabus_progress"] = DEFAULT_SYLLABUS_PROGRESS.copy()
     
     current_spots = existing.get("weak_spots", [])
     for spot in weak_spots:

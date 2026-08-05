@@ -1,0 +1,151 @@
+{
+  "A1": {
+    "title": "Beginner Foundations",
+    "modules": [
+      {
+        "id": "A1-M1",
+        "title": "Greetings & Introductions",
+        "topics": [
+          {
+            "id": "A1-M1-T1",
+            "name": "Basic Greetings & Politeness",
+            "grammar_target": "Bonjour, Salut, Merci, S'il vous plaît",
+            "tenses_unlocked": ["Présent de l'indicatif"],
+            "target_repetitions": 3
+          },
+          {
+            "id": "A1-M1-T2",
+            "name": "Introducing Yourself",
+            "grammar_target": "Je m'appelle, Je suis, J'habite à",
+            "tenses_unlocked": ["Présent de l'indicatif"],
+            "target_repetitions": 3
+          }
+        ]
+      },
+      {
+        "id": "A1-M2",
+        "title": "Essential Verbs & Nouns",
+        "topics": [
+          {
+            "id": "A1-M2-T1",
+            "name": "être and avoir",
+            "grammar_target": "Conjugation of être (to be) and avoir (to have)",
+            "tenses_unlocked": ["Présent de l'indicatif"],
+            "target_repetitions": 3
+          },
+          {
+            "id": "A1-M2-T2",
+            "name": "Articles & Gender Agreement",
+            "grammar_target": "le/la/les, un/une/des, adjectival gender agreement",
+            "tenses_unlocked": ["Présent de l'indicatif"],
+            "target_repetitions": 3
+          }
+        ]
+      }
+    ]
+  },
+  "A2": {
+    "title": "Elementary Communication",
+    "modules": [
+      {
+        "id": "A2-M1",
+        "title": "Past Events & Daily Routines",
+        "topics": [
+          {
+            "id": "A2-M1-T1",
+            "name": "Passé Composé with avoir",
+            "grammar_target": "Past tense with avoir (j'ai parlé, j'ai mangé)",
+            "tenses_unlocked": ["Présent", "Passé Composé"],
+            "target_repetitions": 3
+          },
+          {
+            "id": "A2-M1-T2",
+            "name": "Passé Composé with être & Movement Verbs",
+            "grammar_target": "Movement verbs with être (je suis allé, elle est venue)",
+            "tenses_unlocked": ["Présent", "Passé Composé"],
+            "target_repetitions": 3
+          }
+        ]
+      }
+    ]
+  },
+  "B1": {
+    "title": "Intermediate Independence",
+    "modules": [
+      {
+        "id": "B1-M1",
+        "title": "Opinions, Expressing Wishes & Subjunctive",
+        "topics": [
+          {
+            "id": "B1-M1-T1",
+            "name": "Imparfait vs Passé Composé",
+            "grammar_target": "Background actions (imparfait) vs completed actions (passé composé)",
+            "tenses_unlocked": ["Présent", "Passé Composé", "Imparfait"],
+            "target_repetitions": 3
+          },
+          {
+            "id": "B1-M1-T2",
+            "name": "Subjonctif Présent & Necessity",
+            "grammar_target": "Il faut que + subjonctif (il faut que je fasse, il faut que tu viennes)",
+            "tenses_unlocked": ["Présent", "Passé Composé", "Imparfait", "Subjonctif Présent"],
+            "target_repetitions": 3
+          }
+        ]
+      }
+    ]
+  },
+  "B2": {
+    "title": "Upper Intermediate Fluency",
+    "modules": [
+      {
+        "id": "B2-M1",
+        "title": "Complex Hypotheses & Conditionals",
+        "topics": [
+          {
+            "id": "B2-M1-T1",
+            "name": "Conditionnel Présent & Hypotheses (Si + imparfait)",
+            "grammar_target": "Si j'avais le temps, je voyagerais",
+            "tenses_unlocked": ["Présent", "Passé Composé", "Imparfait", "Subjonctif", "Conditionnel Présent"],
+            "target_repetitions": 3
+          }
+        ]
+      }
+    ]
+  },
+  "C1": {
+    "title": "Advanced Mastery",
+    "modules": [
+      {
+        "id": "C1-M1",
+        "title": "Formal Nuances & Inversion",
+        "topics": [
+          {
+            "id": "C1-M1-T1",
+            "name": "Formal Stylistic Inversion & Nuanced Conjunctions",
+            "grammar_target": "Inversion (Peut-être vient-il) & Conjunctions (Bien que, Quoique)",
+            "tenses_unlocked": ["All tenses including Passé Simple & Subjonctif Imparfait"],
+            "target_repetitions": 3
+          }
+        ]
+      }
+    ]
+  },
+  "C2": {
+    "title": "Native Mastery & Literary Nuance",
+    "modules": [
+      {
+        "id": "C2-M1",
+        "title": "Native Debate & Stylistic Polish",
+        "topics": [
+          {
+            "id": "C2-M1-T1",
+            "name": "Idiomatic Precision & Philosophical Argumentation",
+            "grammar_target": "Subtle stylistic registers, literary forms, native idioms",
+            "tenses_unlocked": ["Full Native Command"],
+            "target_repetitions": 3
+          }
+        ]
+      }
+    ]
+  }
+}

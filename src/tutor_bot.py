@@ -18,14 +18,14 @@ class TutorResponse(typing.TypedDict):
 
 from mentor_manager import build_mentor_instructions
 
-def get_system_instruction(user_level, mentor_style, weak_spots=None, user_memories=None, turtle_mode=False, user_name="Learner", user_hometown=""):
-    return build_mentor_instructions(user_level, mentor_style, user_memories, weak_spots, turtle_mode, user_name, user_hometown)
+def get_system_instruction(user_level, mentor_style, weak_spots=None, user_memories=None, turtle_mode=False, user_name="Learner", user_hometown="", syllabus_state=None):
+    return build_mentor_instructions(user_level, mentor_style, user_memories, weak_spots, turtle_mode, user_name, user_hometown, syllabus_state=syllabus_state)
 
 MODEL_NAME = "gemini-2.0-flash"  # Latest production Gemini Flash model
 
-def create_chat(client, user_level, mentor_style, weak_spots=None, user_memories=None, turtle_mode=False, user_name="Learner", user_hometown=""):
+def create_chat(client, user_level, mentor_style, weak_spots=None, user_memories=None, turtle_mode=False, user_name="Learner", user_hometown="", syllabus_state=None):
     models_to_try = ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-flash-latest"]
-    sys_inst = get_system_instruction(user_level, mentor_style, weak_spots, user_memories, turtle_mode, user_name, user_hometown)
+    sys_inst = get_system_instruction(user_level, mentor_style, weak_spots, user_memories, turtle_mode, user_name, user_hometown, syllabus_state=syllabus_state)
     
     for m in models_to_try:
         try:
@@ -52,8 +52,8 @@ def create_chat(client, user_level, mentor_style, weak_spots=None, user_memories
         )
     )
 
-def update_chat_persona(client, user_level, mentor_style, weak_spots=None, user_memories=None, turtle_mode=False, user_name="Learner", user_hometown=""):
-    return create_chat(client, user_level, mentor_style, weak_spots, user_memories, turtle_mode, user_name, user_hometown)
+def update_chat_persona(client, user_level, mentor_style, weak_spots=None, user_memories=None, turtle_mode=False, user_name="Learner", user_hometown="", syllabus_state=None):
+    return create_chat(client, user_level, mentor_style, weak_spots, user_memories, turtle_mode, user_name, user_hometown, syllabus_state=syllabus_state)
 
 import re
 
@@ -89,6 +89,13 @@ def retry_with_exponential_backoff(func, max_retries=5, initial_delay=1.0, max_d
             msg = getattr(e, 'message', str(e))
             print(f"\n[Gemini API Rate Limit Notice (Status Code: {code}) - {msg}]")
             
+            # Phase 2 Local TTS Fallback: Play conversational filler while waiting out exponential backoff
+            try:
+                from audio_utils import play_thinking_filler
+                play_thinking_filler()
+            except Exception:
+                pass
+
             if attempt == max_retries:
                 print(f"[Max retries ({max_retries}) reached. Switching to graceful breather fallback.]")
                 raise e

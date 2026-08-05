@@ -10,19 +10,24 @@ from tutor_bot import create_chat, handle_user_message, update_chat_persona
 from user_profile import load_profile, save_profile
 from audio_utils import speak_french, listen_to_mic, VOICE_AVAILABLE, TTS_AVAILABLE
 from roleplay import select_roleplay_menu
-from gamification import add_xp, check_badges
-from stats import render_stat_chart, award_stat_xp, DEFAULT_STATS
 from memory_manager import extract_session_memories
 from mentor_manager import render_mentor_dossier
+from syllabus_engine import (
+    get_current_syllabus_state, 
+    record_target_usage, 
+    set_revision_topic, 
+    clear_revision_topic, 
+    promote_cefr_level
+)
 
 from google import genai
 from google.genai import types
 
 def select_style_menu():
     print("\n--- Choose Your Chameleon Mentor Persona ---")
-    print("1. Clara (The Vibrant Expat Friend) 🌸 — Upbeat, quirky, active listener, boosts Charm & Knowledge")
-    print("2. Derek (The Strict Purist Teacher) 🎩 — Formal, meticulous, grammar academic, boosts Wit & Knowledge")
-    print("3. Alice (The Eclectic Bibliophile) 📚 — Captivating, literary, history lover, boosts Courage & Knowledge")
+    print("1. Clara (The Vibrant Expat Friend) 🌸 — Upbeat, quirky, active listener")
+    print("2. Derek (The Strict Purist Teacher) 🎩 — Formal, meticulous, grammar academic")
+    print("3. Alice (The Eclectic Bibliophile) 📚 — Captivating, literary, history lover")
     choice = input("Select mentor (1-3) [Default: 1]: ").strip()
     if choice == '2':
         return "Derek"
@@ -58,7 +63,6 @@ def main():
         print("Warning: GEMINI_API_KEY environment variable not found in .env.")
         api_key = input("Please enter your Gemini API Key: ").strip()
 
-    # Initialize Gemini client with resilient 60s timeout for network transport layer
     client = genai.Client(api_key=api_key, http_options=types.HttpOptions(timeout=60000))
 
     # Initialize ChromaDB and auto-ingest
@@ -78,30 +82,28 @@ def main():
         user_db_profile = get_user_profile_data()
         print(f"\n✨ Enchanté, {user_db_profile['name']}! Profile initialized!\n")
 
-    # Initialize Chat Bot
     print("\nBonjour ! I am your empathetic French AI Mentor.")
     
     profile = load_profile()
     weak_spots = profile.get("weak_spots", []) if profile else []
     user_memories = profile.get("user_memories", {}) if profile else {}
     if profile:
-        user_level = profile.get("cefr_level", "A2")
-        mentor_style = profile.get("mentor_style", "Balanced")
+        user_level = profile.get("cefr_level", "A1")
+        mentor_style = profile.get("mentor_style", "Clara")
         print(f"Welcome back, {user_db_profile['name']}! Loading saved profile... (Level: {user_level}, Persona: {mentor_style})")
-        if weak_spots:
-            print(f"Loaded Spaced Repetition Ledger: {len(weak_spots)} weak spot(s) active.")
-        if user_memories.get("mastered_vocab"):
-            print(f"Loaded Cross-Session Long-Term Memory: {len(user_memories.get('mastered_vocab', []))} fact(s) recalled.")
     else:
-        user_level = input("What is your target French level? (A1, A2, B1, B2, C1, or C2) [Default: A2]: ").strip().upper()
+        user_level = input("What is your target French level? (A1, A2, B1, B2, C1, or C2) [Default: A1]: ").strip().upper()
         if user_level not in ['A1', 'A2', 'B1', 'B2', 'C1', 'C2']:
-            user_level = 'A2'
+            user_level = 'A1'
             
         mentor_style = select_style_menu()
-            
         save_profile(user_level, mentor_style, weak_spots=weak_spots, user_memories=user_memories)
-        print("Profile saved successfully!")
-        
+        profile = load_profile()
+
+    # Load active Syllabus state
+    syllabus_state = get_current_syllabus_state(profile)
+    print(f"🎯 [SYLLABUS ACTIVE]: Level {syllabus_state['current_level']} | Focus Topic: '{syllabus_state['topic_name']}' ({syllabus_state['grammar_target']})")
+
     chat = create_chat(
         client, 
         user_level, 
@@ -109,10 +111,10 @@ def main():
         weak_spots=weak_spots, 
         user_memories=user_memories,
         user_name=user_db_profile["name"],
-        user_hometown=user_db_profile["hometown"]
+        user_hometown=user_db_profile["hometown"],
+        syllabus_state=syllabus_state
     )
     
-    # Prompt for Voice Mode
     voice_mode = False
     if VOICE_AVAILABLE:
         voice_enable = input("Would you like to enable Voice Mode? (y/n): ").strip().lower()
@@ -128,14 +130,8 @@ def main():
         render_top_dashboard(user_level, mentor_style, profile or {})
         render_command_dashboard()
     except Exception:
-        print(f"\nAwesome! Your Chameleon Mentor is ready, locked in at {user_level} ({mentor_style}).")
-        print("Commands: /call (voice mode) | /dossier (mentor notes) | /hangout | /roleplay | /shadow | /story | /profile | /speed\n")
-    except Exception:
-        print(f"\nAwesome! Your Chameleon Mentor is ready, locked in at {user_level} ({mentor_style}).")
-        print(f"Level {user_lvl} Traveler | XP: {xp} | Daily Streak: {milestone_streak} day(s) 🔥")
-        if user_badges:
-            print(f"Badges: {', '.join(user_badges)}")
-        print("Commands: /call (voice mode) | /dossier (mentor notes) | /stats | /hangout | /roleplay | /shadow | /story | /milestones | /badges | /profile | /speed\n")
+        print(f"\nAwesome! Your Mentor is ready, locked in at {user_level} ({mentor_style}).")
+        print("Commands: /call | /syllabus | /review | /vault | /notepad | /dossier | /profile | /speed\n")
 
     session_metrics = {
         "total_turns": 0,
@@ -166,13 +162,14 @@ def main():
                 voice_mode = not voice_mode
                 print(f"\n[Voice Mode {'enabled' if voice_mode else 'disabled'}]\n")
             else:
-                print("\n[Cannot enable Voice Mode: PyAudio or SpeechRecognition libraries are missing.]\n")
+                print("\n[Cannot enable Voice Mode: Speech packages are missing.]\n")
             continue
 
         if user_input.strip().lower() == '/profile':
             mentor_style = select_style_menu()
-            save_profile(user_level, mentor_style, 0, weak_spots, 0, 1, [], {}, user_memories)
-            chat = update_chat_persona(client, user_level, mentor_style, weak_spots, user_memories, turtle_mode, user_name=user_db_profile["name"], user_hometown=user_db_profile["hometown"])
+            save_profile(user_level, mentor_style, weak_spots=weak_spots, user_memories=user_memories)
+            syllabus_state = get_current_syllabus_state(profile)
+            chat = update_chat_persona(client, user_level, mentor_style, weak_spots, user_memories, turtle_mode, user_name=user_db_profile["name"], user_hometown=user_db_profile["hometown"], syllabus_state=syllabus_state)
             current_speed = get_voice_speed(mentor_style) if not turtle_mode else 650
             try:
                 from rich_ui import render_top_dashboard
@@ -181,9 +178,41 @@ def main():
                 print(f"\n[Mentor style updated dynamically to: {mentor_style}]\n")
             continue
 
+        if user_input.strip().lower() == '/syllabus':
+            syllabus_state = get_current_syllabus_state(profile)
+            print(f"\n--- 🎯 SYLLABUS ENGINE STATUS ---")
+            print(f"CEFR Level:       {syllabus_state['current_level']}")
+            print(f"Active Module:    {syllabus_state['module_title']} ({syllabus_state['module_id']})")
+            print(f"Active Topic:     {syllabus_state['topic_name']} ({syllabus_state['topic_id']})")
+            print(f"Grammar Target:   {syllabus_state['grammar_target']}")
+            print(f"Unlocked Tenses:  {', '.join(syllabus_state['tenses_unlocked'])}")
+            print(f"Mastery Reps:     {syllabus_state['repetition_count']} / {syllabus_state['target_repetitions']}")
+            if syllabus_state['revision_topic']:
+                print(f"Revision Focus:   {syllabus_state['revision_topic']} (Active ad-hoc override)")
+            print()
+            continue
+
+        if user_input.strip().lower().startswith('/review'):
+            parts = user_input.split(maxsplit=1)
+            if len(parts) > 1:
+                rev_topic = parts[1].strip()
+                profile = set_revision_topic(profile, rev_topic)
+                save_profile(user_level, mentor_style, weak_spots=weak_spots, user_memories=user_memories, syllabus_progress=profile.get("syllabus_progress"))
+                syllabus_state = get_current_syllabus_state(profile)
+                chat = update_chat_persona(client, user_level, mentor_style, weak_spots, user_memories, turtle_mode, user_name=user_db_profile["name"], user_hometown=user_db_profile["hometown"], syllabus_state=syllabus_state)
+                print(f"\n[Ad-Hoc Revision Activated 🔄]: Temporarily reviewing '{rev_topic}'. Current syllabus retained in background.\n")
+            else:
+                profile = clear_revision_topic(profile)
+                save_profile(user_level, mentor_style, weak_spots=weak_spots, user_memories=user_memories, syllabus_progress=profile.get("syllabus_progress"))
+                syllabus_state = get_current_syllabus_state(profile)
+                chat = update_chat_persona(client, user_level, mentor_style, weak_spots, user_memories, turtle_mode, user_name=user_db_profile["name"], user_hometown=user_db_profile["hometown"], syllabus_state=syllabus_state)
+                print("\n[Ad-Hoc Revision Cleared ✅]: Resuming main syllabus progression.\n")
+            continue
+
         if user_input.strip().lower() == '/speed':
             turtle_mode = not turtle_mode
-            chat = update_chat_persona(client, user_level, mentor_style, weak_spots, user_memories, turtle_mode, user_name=user_db_profile["name"], user_hometown=user_db_profile["hometown"])
+            syllabus_state = get_current_syllabus_state(profile)
+            chat = update_chat_persona(client, user_level, mentor_style, weak_spots, user_memories, turtle_mode, user_name=user_db_profile["name"], user_hometown=user_db_profile["hometown"], syllabus_state=syllabus_state)
             if turtle_mode:
                 print("\n[Pacing Mode: Turtle 🐢 (Deliberate, slow, clear pacing injected into system prompt)]\n")
             else:
@@ -210,17 +239,21 @@ def main():
             render_vault_dashboard(vault_rows)
             continue
 
+        if user_input.strip().lower() == '/dossier':
+            render_mentor_dossier(mentor_style, profile)
+            continue
+
         if user_input.strip().lower() == '/hangout':
             m_clean = mentor_style.lower()
             if "derek" in m_clean or "coach" in m_clean:
                 print("\n[Launching Derek's Hangout Session: Quiet University Courtyard & Café Terrace ☕]")
-                user_input = "Let's sit in the university courtyard and go over advanced grammar nuances with tea."
+                user_input = "Let's sit in the courtyard and review past grammar rules together."
             elif "alice" in m_clean or "story" in m_clean:
-                print("\n[Launching Alice's Hangout Session: Antiquarian Bookstore & Seine River Bridge 🏛️]")
-                user_input = "Let's walk near the ancient bookstore by the Seine river and talk about classic literature."
+                print("\n[Launching Alice's Hangout Session: Antiquarian Bookstore & Seine River 🏛️]")
+                user_input = "Let's walk by the Seine river and discuss classic French literature."
             else:
                 print("\n[Launching Clara's Hangout Session: Indie Record Store & Park Bench 🎧]")
-                user_input = "Let's hang out on a park bench, listen to some French indie music, and chat casually."
+                user_input = "Let's hang out on a park bench and chat casually in French."
 
         if user_input.strip().lower() == '/roleplay':
             scenario = select_roleplay_menu()
@@ -231,7 +264,7 @@ def main():
             print("\n[Starting Interactive Shadowing Drill...]\n")
 
         if user_input.strip().lower() == '/story':
-            user_input = f"Please read me a short 3-sentence story in French appropriate for my level ({user_level}), and ask me 2 simple questions."
+            user_input = f"Please read me a short 3-sentence story in French appropriate for my level ({user_level}), and ask me 1 simple question."
             print("\n[Starting Daily Reading Session...]\n")
 
         # Speed Adaptation check
@@ -243,7 +276,7 @@ def main():
         # Atmospheric Status Spinner
         try:
             from rich_ui import status_spinner
-            with status_spinner(f"☕ Brewing connection & response with {mentor_style}...", mentor_style):
+            with status_spinner(f"☕ Connection active with {mentor_style}...", mentor_style):
                 reply = handle_user_message(user_input, client, chat, collection, mentor_name=mentor_style)
         except Exception:
             reply = handle_user_message(user_input, client, chat, collection, mentor_name=mentor_style)
@@ -271,7 +304,6 @@ def main():
             phonetics = parsed.get('phonetic_breakdown')
             diag = parsed.get('diagnostics')
             
-            # Check for network timeout or API error fallbacks -> Skip XP rewards
             if diag in ["NETWORK_TIMEOUT_RETRY", "API_TEMPORARY_LIMIT_BREATHER"]:
                 try:
                     from rich_ui import render_mentor_dialogue
@@ -282,9 +314,23 @@ def main():
                         print(f"Feedback: {mentor_feedback}\n")
                 continue
 
-            # SUCCESS: Log turn metrics
+            # SUCCESS: Log turn metrics & check Syllabus Mastery Progress
             session_metrics["total_turns"] += 1
-            save_profile(user_level, mentor_style, weak_spots=weak_spots, user_memories=user_memories)
+            
+            # Check if user successfully used the target grammar without diagnostics error
+            if not diag or "error" not in str(diag).lower():
+                profile, advanced, level_done = record_target_usage(profile)
+                if advanced:
+                    print("\n✨ [SYLLABUS PROGRESSION 🎯]: Mastery target reached! Advancing to next topic in syllabus.\n")
+                    syllabus_state = get_current_syllabus_state(profile)
+                    chat = update_chat_persona(client, user_level, mentor_style, weak_spots, user_memories, turtle_mode, user_name=user_db_profile["name"], user_hometown=user_db_profile["hometown"], syllabus_state=syllabus_state)
+                if level_done:
+                    print(f"\n🎓 [LEVEL-UP ASSESSMENT UNLOCKED]: You completed all modules for {user_level}! Entering Assessment Mode.\n")
+                    # Check assessment pass condition: Promote level
+                    profile = promote_cefr_level(profile)
+                    user_level = profile.get("cefr_level", user_level)
+
+            save_profile(user_level, mentor_style, weak_spots=weak_spots, user_memories=user_memories, syllabus_progress=profile.get("syllabus_progress"))
             
             # Sync SQLite persistent storage
             try:
@@ -308,7 +354,7 @@ def main():
                     print(f"Feedback: {mentor_feedback}")
                 print()
             
-            # CRITICAL: Explicitly and ONLY pass parsed french_resp to TTS
+            # Non-blocking TTS Audio Playback
             if voice_mode and french_resp:
                 speak_french(french_resp, mentor_style=mentor_style)
 
@@ -323,12 +369,12 @@ def main():
             if diag:
                 session_metrics["diagnostics_flagged"].append(diag)
                 weak_spots.append(diag)
-                save_profile(user_level, mentor_style, weak_spots=weak_spots, user_memories=user_memories)
+                save_profile(user_level, mentor_style, weak_spots=weak_spots, user_memories=user_memories, syllabus_progress=profile.get("syllabus_progress"))
             
             if parsed.get('is_exit'):
                 profile = extract_session_memories(session_metrics, profile or {})
                 user_memories = profile.get("user_memories", {})
-                save_profile(user_level, mentor_style, weak_spots=weak_spots, user_memories=user_memories)
+                save_profile(user_level, mentor_style, weak_spots=weak_spots, user_memories=user_memories, syllabus_progress=profile.get("syllabus_progress"))
                 
                 db_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "db")
                 os.makedirs(db_dir, exist_ok=True)
@@ -340,6 +386,7 @@ def main():
                 print("║               🎓 POST-SESSION SUMMARY CARD 🎓               ║")
                 print("╠════════════════════════════════════════════════════════════╣")
                 print(f"║ 🎭 Mentor Persona:       {mentor_style}")
+                print(f"║ 🎯 Active CEFR Level:     {user_level}")
                 print(f"║ 💬 Conversational Turns:  {session_metrics['total_turns']}")
                 v_str = ', '.join(session_metrics['vocabulary_learned']) if session_metrics['vocabulary_learned'] else 'None'
                 if len(v_str) > 35: v_str = v_str[:32] + "..."

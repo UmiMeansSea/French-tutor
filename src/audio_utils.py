@@ -81,6 +81,14 @@ def _play_tts_async(clean_text, voice, temp_file):
         except Exception:
             pass
 
+def play_thinking_filler(mentor_style="clara"):
+    """
+    Phase 2 Local Rate Limit TTS Fallback: Plays a lightweight local filler phrase
+    (e.g., 'Hmm, laisse-moi réfléchir...') to mask network delay when API backoff occurs.
+    """
+    filler_text = "Hmm, laisse-moi réfléchir un instant..."
+    speak_french(filler_text, mentor_style=mentor_style)
+
 def speak_french(text, speed=1000, mentor_style="clara"):
     if not text or not str(text).strip():
         return
@@ -158,8 +166,9 @@ def listen_to_mic(silence_threshold=4.0, sample_rate=16000, max_duration=30.0, p
             with open(temp_wav, "wb") as f:
                 f.write(audio.get_wav_data())
                 
-            # Transcribe seamlessly (Language auto-detection enabled)
-            segments, info = whisper_model.transcribe(temp_wav, beam_size=3)
+            # Transcribe seamlessly with Franglish initial_prompt bias to prevent decoder hallucination on code-switching
+            franglish_prompt = "Bonjour, hello! Je parle français and English mixed together. Comment ça va, thank you!"
+            segments, info = whisper_model.transcribe(temp_wav, beam_size=3, initial_prompt=franglish_prompt)
             transcription = " ".join([segment.text for segment in segments]).strip()
             
             if os.path.exists(temp_wav):
