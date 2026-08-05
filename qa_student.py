@@ -55,6 +55,11 @@ class LinguaphantomQAV2:
 
         raw_response = handle_user_message(message, self.client, chat, mentor_name=mentor)
         latency = round(time.time() - start_time, 2)
+
+        # 🛑 THE FIX: Add a 6-second sleep to respect the Free Tier RPM limit
+        print(f"⏳ Sleeping for 6 seconds to respect rate limits...")
+        time.sleep(6)
+
         return raw_response, latency
 
     def log_test(self, mentor, test_name, prompt, response, latency, passed, details=""):
