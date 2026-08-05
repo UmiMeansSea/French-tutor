@@ -6,6 +6,7 @@ import typing_extensions as typing
 from google import genai
 from google.genai import types
 from google.genai.errors import APIError
+from llm_router import route_llm_request
 
 class TutorResponse(typing.TypedDict):
     french_response: str
@@ -75,7 +76,7 @@ def extract_retry_seconds(error_message):
             pass
     return None
 
-def retry_with_exponential_backoff(func, max_retries=5, initial_delay=1.0, max_delay=32.0):
+def retry_with_exponential_backoff(func, max_retries=10, initial_delay=2.0, max_delay=65.0):
     """
     Executes func() with exponential backoff and random jitter.
     Respects server-sent 'Please retry in Xs' requested delays on HTTP 429.
@@ -96,22 +97,22 @@ def retry_with_exponential_backoff(func, max_retries=5, initial_delay=1.0, max_d
             except Exception:
                 pass
 
-            if attempt == max_retries:
-                print(f"[Max retries ({max_retries}) reached. Switching to graceful breather fallback.]")
-                raise e
-            
             server_delay = extract_retry_seconds(msg) or extract_retry_seconds(str(e))
             if server_delay is not None and server_delay > 0:
-                safety_buffer = 1.0  # Buffer margin to guarantee quota window clearance
+                safety_buffer = 2.0  # Buffer margin to guarantee quota window clearance
                 sleep_time = server_delay + safety_buffer
-                print(f"⏳ [Server-Requested Quota Wait]: Server asked to wait {server_delay:.1f}s. Sleeping {sleep_time:.1f}s (+1.0s buffer)... (Attempt {attempt}/{max_retries})")
+                print(f"[Quota Wait]: Server asked to wait {server_delay:.1f}s. Sleeping {sleep_time:.1f}s... (Attempt {attempt}/{max_retries})")
             else:
                 jitter = random.uniform(0.2, 0.8)
                 sleep_time = min(delay + jitter, max_delay)
-                print(f"⏳ [Rate Limit Breather]: Pausing for {sleep_time:.1f}s to clear quota window... (Attempt {attempt}/{max_retries})")
+                print(f"[Rate Limit Breather]: Pausing for {sleep_time:.1f}s to clear quota window... (Attempt {attempt}/{max_retries})")
             
             time.sleep(sleep_time)
             delay *= 2.0
+            
+            if attempt == max_retries:
+                print(f"[Max retries ({max_retries}) reached. Switching to graceful breather fallback.]")
+                raise e
         except Exception as e:
             is_timeout = "timeout" in str(e).lower() or "connect" in str(e).lower()
             if is_timeout:
@@ -269,26 +270,38 @@ def handle_user_message(user_input, client, chat, collection=None, mentor_name="
         except Exception:
             augmented_message = user_input
         
-    try:
-        raw_res = retry_with_exponential_backoff(lambda: chat.send_message(augmented_message).text)
-        cleaned_res = clean_json_string(raw_res)
-        
-        # Track diagnostics to know if previous turn had a correction
-        parsed = parse_json_response(cleaned_res)
-        if parsed and parsed.get('diagnostics') and parsed['diagnostics'] not in ['NETWORK_TIMEOUT_RETRY', 'API_TEMPORARY_LIMIT_BREATHER']:
-            LAST_TURN_HAD_CORRECTION = True
-        else:
-            LAST_TURN_HAD_CORRECTION = False
+    # ── LLM Router: Gemini primary → Groq fallback → Failsafe ──────────────
+    # Serialize current chat history into stateless format for the router.
+    # This lets the Groq fallback receive full context on a cold handoff.
+    raw_history = getattr(chat, "_history", None) or getattr(chat, "history", [])
+    serialized_history = []
+    for turn in (raw_history or []):
+        role = getattr(turn, "role", "user")
+        parts = getattr(turn, "parts", [])
+        text_parts = [getattr(p, "text", str(p)) for p in parts if p]
+        serialized_history.append({"role": role, "parts": text_parts})
 
-        return process_notepad_tags(cleaned_res, user_input, mentor_name)
-    except Exception:
-        fallback_response = {
-            "french_response": "Désolé, la connexion est un peu lente. Peux-tu me répéter ta phrase ?",
-            "mentor_feedback": "Rate limit (429) or network timeout encountered. Your session is active—feel free to re-enter your message!",
-            "internal_adaptation_level": "Rate Limit Breather Fallback",
-            "is_exit": False,
-            "new_vocabulary_introduced": [],
-            "diagnostics": "NETWORK_TIMEOUT_RETRY"
-        }
-        return json.dumps(fallback_response)
+    system_prompt = get_system_instruction(
+        user_level  = getattr(chat, "_user_level", "A2"),
+        mentor_style= mentor_name
+    )
+
+    raw_res = route_llm_request(
+        system_prompt = system_prompt,
+        chat_history  = serialized_history,
+        user_input    = augmented_message,
+        mentor_name   = mentor_name
+    )
+    cleaned_res = clean_json_string(raw_res)
+
+    # Track diagnostics to know if previous turn had a correction
+    parsed = parse_json_response(cleaned_res)
+    diagnostics = parsed.get('diagnostics', '') if parsed else ''
+    non_error_states = {'NETWORK_TIMEOUT_RETRY', 'API_TEMPORARY_LIMIT_BREATHER', 'DUAL_API_FAILURE', 'GROQ_FALLBACK_ACTIVATED'}
+    if parsed and diagnostics not in non_error_states and parsed.get('mentor_feedback'):
+        LAST_TURN_HAD_CORRECTION = True
+    else:
+        LAST_TURN_HAD_CORRECTION = False
+
+    return process_notepad_tags(cleaned_res, user_input, mentor_name)
 
