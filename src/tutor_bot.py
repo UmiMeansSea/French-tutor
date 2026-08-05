@@ -1,3 +1,4 @@
+import re
 import time
 import random
 import json
@@ -6,7 +7,6 @@ import typing_extensions as typing
 from google import genai
 from google.genai import types
 from google.genai.errors import APIError
-from llm_router import route_llm_request
 
 class TutorResponse(typing.TypedDict):
     french_response: str
@@ -56,7 +56,6 @@ def create_chat(client, user_level, mentor_style, weak_spots=None, user_memories
 def update_chat_persona(client, user_level, mentor_style, weak_spots=None, user_memories=None, turtle_mode=False, user_name="Learner", user_hometown="", syllabus_state=None):
     return create_chat(client, user_level, mentor_style, weak_spots, user_memories, turtle_mode, user_name, user_hometown, syllabus_state=syllabus_state)
 
-import re
 
 def extract_retry_seconds(error_message):
     """
@@ -270,38 +269,25 @@ def handle_user_message(user_input, client, chat, collection=None, mentor_name="
         except Exception:
             augmented_message = user_input
         
-    # ── LLM Router: Gemini primary → Groq fallback → Failsafe ──────────────
-    # Serialize current chat history into stateless format for the router.
-    # This lets the Groq fallback receive full context on a cold handoff.
-    raw_history = getattr(chat, "_history", None) or getattr(chat, "history", [])
-    serialized_history = []
-    for turn in (raw_history or []):
-        role = getattr(turn, "role", "user")
-        parts = getattr(turn, "parts", [])
-        text_parts = [getattr(p, "text", str(p)) for p in parts if p]
-        serialized_history.append({"role": role, "parts": text_parts})
+    try:
+        raw_res = retry_with_exponential_backoff(lambda: chat.send_message(augmented_message).text)
+        cleaned_res = clean_json_string(raw_res)
 
-    system_prompt = get_system_instruction(
-        user_level  = getattr(chat, "_user_level", "A2"),
-        mentor_style= mentor_name
-    )
+        # Track whether the previous turn had a correction (drives RAG on next turn)
+        parsed = parse_json_response(cleaned_res)
+        if parsed and parsed.get('diagnostics') and parsed['diagnostics'] not in ['NETWORK_TIMEOUT_RETRY', 'API_TEMPORARY_LIMIT_BREATHER']:
+            LAST_TURN_HAD_CORRECTION = True
+        else:
+            LAST_TURN_HAD_CORRECTION = False
 
-    raw_res = route_llm_request(
-        system_prompt = system_prompt,
-        chat_history  = serialized_history,
-        user_input    = augmented_message,
-        mentor_name   = mentor_name
-    )
-    cleaned_res = clean_json_string(raw_res)
-
-    # Track diagnostics to know if previous turn had a correction
-    parsed = parse_json_response(cleaned_res)
-    diagnostics = parsed.get('diagnostics', '') if parsed else ''
-    non_error_states = {'NETWORK_TIMEOUT_RETRY', 'API_TEMPORARY_LIMIT_BREATHER', 'DUAL_API_FAILURE', 'GROQ_FALLBACK_ACTIVATED'}
-    if parsed and diagnostics not in non_error_states and parsed.get('mentor_feedback'):
-        LAST_TURN_HAD_CORRECTION = True
-    else:
-        LAST_TURN_HAD_CORRECTION = False
-
-    return process_notepad_tags(cleaned_res, user_input, mentor_name)
-
+        return process_notepad_tags(cleaned_res, user_input, mentor_name)
+    except Exception:
+        fallback_response = {
+            "french_response": "Désolé, la connexion est un peu lente. Peux-tu me répéter ta phrase ?",
+            "mentor_feedback": "Rate limit (429) or network timeout encountered. Your session is active—feel free to re-enter your message!",
+            "internal_adaptation_level": "Rate Limit Breather Fallback",
+            "is_exit": False,
+            "new_vocabulary_introduced": [],
+            "diagnostics": "NETWORK_TIMEOUT_RETRY"
+        }
+        return json.dumps(fallback_response)
